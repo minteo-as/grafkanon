@@ -7,6 +7,8 @@ export interface ControlsCallbacks {
   onLine(line: Line): void;
   onFire(): void;
   onHelp(help: Help): void;
+  onMenu(): void;
+  onToggleSound(): void;
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -22,6 +24,9 @@ const A_STEP = 0.5;
 const B_STEP = 1;
 
 export class Controls {
+  /** Slås fra, mens menuen er åben, så tasterne ikke styrer spillet bagved. */
+  enabled = true;
+
   private sliderA = $<HTMLInputElement>('sliderA');
   private sliderB = $<HTMLInputElement>('sliderB');
   private outA = $<HTMLOutputElement>('outA');
@@ -33,6 +38,7 @@ export class Controls {
   private fireButton = $<HTMLButtonElement>('fire');
   private aimToggle = $<HTMLInputElement>('helpAim');
   private coordsToggle = $<HTMLInputElement>('helpCoords');
+  private soundButton = $<HTMLButtonElement>('hudSound');
   private current: Line = { a: 1, b: 0 };
 
   constructor(private cb: ControlsCallbacks) {
@@ -60,6 +66,8 @@ export class Controls {
     const help = () => cb.onHelp({ aimLine: this.aimToggle.checked, coordinates: this.coordsToggle.checked });
     this.aimToggle.addEventListener('change', help);
     this.coordsToggle.addEventListener('change', help);
+    $('hudMenu').addEventListener('click', () => cb.onMenu());
+    this.soundButton.addEventListener('click', () => cb.onToggleSound());
 
     document.addEventListener('keydown', ev => this.onKey(ev));
   }
@@ -82,10 +90,22 @@ export class Controls {
     this.fireButton.disabled = !enabled;
   }
 
+  setMuted(muted: boolean): void {
+    this.soundButton.textContent = muted ? 'Lyd fra' : 'Lyd til';
+    this.soundButton.setAttribute('aria-pressed', String(!muted));
+  }
+
   private onKey(ev: KeyboardEvent): void {
+    if (!this.enabled) return;
     const t = ev.target as HTMLElement | null;
-    if (t?.tagName === 'INPUT' && (t as HTMLInputElement).type === 'text') return;
-    if (t?.tagName === 'TEXTAREA') return;
+    const typing = (t?.tagName === 'INPUT' && (t as HTMLInputElement).type === 'text') || t?.tagName === 'TEXTAREA';
+    if (ev.code === 'Escape') {
+      ev.preventDefault();
+      if (typing) t?.blur();
+      else this.cb.onMenu();
+      return;
+    }
+    if (typing) return;
     const onSlider = t?.tagName === 'INPUT' && (t as HTMLInputElement).type === 'range';
 
     // Pile flytter a og b. På en fokuseret skyder klarer browseren det selv.
@@ -97,6 +117,9 @@ export class Controls {
         if (t?.tagName === 'BUTTON') return;
         ev.preventDefault();
         this.cb.onFire();
+        return;
+      case 'KeyM':
+        this.cb.onToggleSound();
         return;
       case 'ArrowLeft':
       case 'ArrowRight':

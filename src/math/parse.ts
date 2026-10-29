@@ -15,7 +15,10 @@ function normalize(input: string): string {
     .replace(/[−–—]/g, '-')
     .replace(/,/g, '.')
     .replace(/[·*]/g, '')
-    .replace(/½/g, '0.5');
+    .replace(/½/g, '0.5')
+    // "2x + −3" og "2x − −3" er også rigtige forskrifter
+    .replace(/\+-|-\+/g, '-')
+    .replace(/--/g, '+');
 }
 
 export function parseLinear(input: string): ParseResult {

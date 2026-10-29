@@ -9,6 +9,8 @@ export const COLORS = {
   rim: 0x1a2a40,
   enemy: 0xff6b3d,
   enemyGlow: 0x5a1800,
+  marcher: 0xb07cff,
+  marcherGlow: 0x2a1060,
   beam: 0x5ce1ff,
   beamCore: 0xeafcff,
   aim: 0xffd166,

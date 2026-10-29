@@ -15,3 +15,22 @@ export function helpMultiplier(help: Help): number {
 export function shotPoints(hits: number, multiplier: number): number {
   return Math.round(POINTS_PER_HIT * hits * hits * multiplier);
 }
+
+/** Point for den k'te træffer i et skud (k starter ved 1), så summen giver shotPoints. */
+export function hitIncrement(k: number, multiplier: number): number {
+  return shotPoints(k, multiplier) - shotPoints(k - 1, multiplier);
+}
+
+export interface WaveResult {
+  shotsUsed: number;
+  minShots: number;
+  helpUsed: Help;
+}
+
+/** ★ bane klaret · ★★ uden ekstra skud · ★★★ uden ekstra skud og uden hjælp. */
+export function starsFor(results: WaveResult[]): 1 | 2 | 3 {
+  const perfect = results.every(r => r.shotsUsed <= r.minShots);
+  const noHelp = results.every(r => !r.helpUsed.aimLine && !r.helpUsed.coordinates);
+  if (!perfect) return 1;
+  return noHelp ? 3 : 2;
+}

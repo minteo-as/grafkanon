@@ -48,6 +48,8 @@ describe('parseLinear', () => {
     ['y = -3', 0, -3],
     ['y = 1,5 x', 1.5, 0],
     ['Y = 2X + 1', 2, 1],
+    ['y = 2x + −3', 2, -3],
+    ['y = 2x − −3', 2, 3],
   ])('%s', (input, a, b) => {
     expect(parseLinear(input)).toEqual({ ok: true, a, b });
   });

@@ -1,102 +1,161 @@
 import * as THREE from 'three';
 import type { Enemy } from '../game/game';
 import { fmtPoint } from '../math/format';
+import type { Effects } from './effects';
 import { disposeSprite, textSprite } from './labels';
 import { COLORS, prefersReducedMotion, toWorld } from './world';
 
 const BODY_HEIGHT = 0.6;
 const SPAWN_TIME = 0.35;
 const DIE_TIME = 0.3;
+const HOP_TIME = 0.25;
 
 interface View {
   group: THREE.Group;
-  body: THREE.Mesh<THREE.IcosahedronGeometry, THREE.MeshStandardMaterial>;
+  body: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
   label: THREE.Sprite;
+  marcher: boolean;
+  cell: { x: number; y: number };
+  hopFrom: THREE.Vector3;
+  hopTo: THREE.Vector3;
+  hopT: number; // 1 = ikke i gang
   phase: number;
   age: number;
   delay: number;
   dying: number; // 0 = lever, > 0 = sekunder siden den blev ramt
 }
 
-const bodyGeo = new THREE.IcosahedronGeometry(0.42, 0);
+const staticGeo = new THREE.IcosahedronGeometry(0.42, 0);
+const marcherGeo = new THREE.OctahedronGeometry(0.48, 0);
 const ringGeo = new THREE.RingGeometry(0.32, 0.46, 20);
-const shardGeo = new THREE.TetrahedronGeometry(0.13);
+const arrowGeo = new THREE.ConeGeometry(0.2, 0.45, 3);
 
 const easeOutBack = (t: number) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2;
 
-interface Particle {
-  mesh: THREE.Mesh;
-  velocity: THREE.Vector3;
-  life: number;
-}
+const labelFor = (x: number, y: number, marcher: boolean) =>
+  textSprite(fmtPoint(x, y), {
+    color: marcher ? '#efe2ff' : '#ffe3d6',
+    background: marcher ? 'rgba(40,16,72,0.88)' : 'rgba(60,20,8,0.85)',
+    height: 0.5,
+  });
 
 export class EnemyLayer {
   private views = new Map<number, View>();
-  private particles: Particle[] = [];
-  private shardMat = new THREE.MeshBasicMaterial({ color: COLORS.enemy });
   private time = 0;
   private reduced = prefersReducedMotion();
+  private showCoordinates = true;
 
-  constructor(private scene: THREE.Scene) {}
+  constructor(private scene: THREE.Scene, private effects: Effects) {}
 
   /** Erstatter alle glitches med en ny bølge. */
   set(enemies: Enemy[], showCoordinates: boolean): void {
     for (const v of this.views.values()) this.remove(v);
     this.views.clear();
+    this.showCoordinates = showCoordinates;
     enemies.forEach((e, i) => {
+      const marcher = !!e.march;
+      const color = marcher ? COLORS.marcher : COLORS.enemy;
       const group = new THREE.Group();
       group.position.copy(toWorld(e.x, e.y));
       const body = new THREE.Mesh(
-        bodyGeo,
-        new THREE.MeshStandardMaterial({ color: COLORS.enemy, emissive: COLORS.enemyGlow, flatShading: true, transparent: true }),
+        marcher ? marcherGeo : staticGeo,
+        new THREE.MeshStandardMaterial({
+          color,
+          emissive: marcher ? COLORS.marcherGlow : COLORS.enemyGlow,
+          flatShading: true,
+          transparent: true,
+        }),
       );
       body.position.y = BODY_HEIGHT;
       const ring = new THREE.Mesh(
         ringGeo,
-        new THREE.MeshBasicMaterial({ color: COLORS.enemy, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
       );
       ring.rotation.x = -Math.PI / 2;
       ring.position.y = 0.03;
-      const label = textSprite(fmtPoint(e.x, e.y), { color: '#ffe3d6', background: 'rgba(60,20,8,0.85)', height: 0.5 });
-      label.position.y = 1.35;
+      group.add(body, ring);
+
+      if (e.march) {
+        // Pil på gulvet, der viser hvilken vej marchøren går
+        const pivot = new THREE.Group();
+        pivot.rotation.y = Math.atan2(-e.march.dx, e.march.dy);
+        const arrow = new THREE.Mesh(arrowGeo, new THREE.MeshBasicMaterial({ color: COLORS.marcher }));
+        arrow.rotation.x = -Math.PI / 2;
+        arrow.position.set(0, 0.05, -0.8);
+        pivot.add(arrow);
+        group.add(pivot);
+      }
+
+      const label = labelFor(e.x, e.y, marcher);
+      label.position.y = 1.4;
       label.visible = showCoordinates;
-      group.add(body, ring, label);
+      group.add(label);
       group.scale.setScalar(0.001);
       this.scene.add(group);
-      this.views.set(e.id, { group, body, label, phase: i * 1.3 + Math.random(), age: 0, delay: i * 0.07, dying: 0 });
+      this.views.set(e.id, {
+        group,
+        body,
+        label,
+        marcher,
+        cell: { x: e.x, y: e.y },
+        hopFrom: group.position.clone(),
+        hopTo: group.position.clone(),
+        hopT: 1,
+        phase: i * 1.3 + Math.random(),
+        age: 0,
+        delay: i * 0.07,
+        dying: 0,
+      });
     });
   }
 
   setCoordinatesVisible(visible: boolean): void {
+    this.showCoordinates = visible;
     for (const v of this.views.values()) if (v.dying === 0) v.label.visible = visible;
   }
 
-  kill(id: number): THREE.Vector3 | null {
+  /** Sprænger glitchen og viser pointene for træfferen. */
+  kill(id: number, pointsText: string): void {
     const v = this.views.get(id);
-    if (!v || v.dying > 0) return null;
+    if (!v || v.dying > 0) return;
     v.dying = 1e-4;
     v.label.visible = false;
-    const origin = v.group.position.clone().setY(BODY_HEIGHT);
-    for (let i = 0; i < 14; i++) {
-      const mesh = new THREE.Mesh(shardGeo, this.shardMat);
-      mesh.position.copy(origin);
-      const velocity = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.9 + 0.3, Math.random() - 0.5).multiplyScalar(7);
-      this.scene.add(mesh);
-      this.particles.push({ mesh, velocity, life: 0.7 });
-    }
-    return origin;
+    const at = v.group.position.clone().setY(BODY_HEIGHT);
+    this.effects.explosion(at, v.marcher ? COLORS.marcher : COLORS.enemy);
+    this.effects.floatingText(at, pointsText, '#ffd166');
   }
 
-  update(dt: number): void {
+  update(dt: number, enemies: Enemy[]): void {
     this.time += dt;
+    for (const e of enemies) {
+      const v = this.views.get(e.id);
+      if (!v || !e.alive || (e.x === v.cell.x && e.y === v.cell.y)) continue;
+      // Marchøren har taget et skridt: hop derhen og skift koordinaterne
+      v.cell = { x: e.x, y: e.y };
+      v.hopFrom.copy(v.group.position);
+      v.hopTo.copy(toWorld(e.x, e.y));
+      v.hopT = 0;
+      v.group.remove(v.label);
+      disposeSprite(v.label);
+      v.label = labelFor(e.x, e.y, v.marcher);
+      v.label.position.y = 1.4;
+      v.label.visible = this.showCoordinates;
+      v.group.add(v.label);
+    }
+
     for (const v of this.views.values()) {
       v.age += dt;
+      if (v.hopT < 1) {
+        v.hopT = Math.min(1, v.hopT + dt / HOP_TIME);
+        v.group.position.lerpVectors(v.hopFrom, v.hopTo, v.hopT);
+        v.group.position.y = Math.sin(Math.PI * v.hopT) * 0.6;
+      }
       if (v.dying === 0) {
         const t = Math.min(1, Math.max(0, (v.age - v.delay) / SPAWN_TIME));
         v.group.scale.setScalar(Math.max(0.001, easeOutBack(t)));
         if (!this.reduced) {
           v.body.position.y = BODY_HEIGHT + Math.sin(this.time * 2.2 + v.phase) * 0.08;
-          v.body.rotation.y += dt * 0.9;
+          v.body.rotation.y += dt * (v.marcher ? 1.6 : 0.9);
           v.body.rotation.x += dt * 0.4;
         }
       } else if (v.group.visible) {
@@ -104,19 +163,6 @@ export class EnemyLayer {
         v.body.scale.setScalar(1 + v.dying * 4);
         v.body.material.opacity = Math.max(0, 1 - v.dying / DIE_TIME);
         if (v.dying > DIE_TIME) v.group.visible = false;
-      }
-    }
-
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i];
-      p.life -= dt;
-      p.velocity.y -= 18 * dt;
-      p.mesh.position.addScaledVector(p.velocity, dt);
-      p.mesh.rotation.x += dt * 8;
-      p.mesh.scale.setScalar(Math.max(0.01, p.life / 0.7));
-      if (p.life <= 0) {
-        this.scene.remove(p.mesh);
-        this.particles.splice(i, 1);
       }
     }
   }

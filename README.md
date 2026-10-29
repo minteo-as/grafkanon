@@ -23,7 +23,14 @@ npm run dev
 ## Opbygning
 
 - `src/math/` læser, formaterer og klipper lineære funktioner (dansk decimalkomma).
-- `src/game/` indeholder spillets regler uden grafik: bølger, skud, point og hjælp.
+- `src/game/` indeholder spillets regler uden grafik: baner, bølger, marchører, skud, point, stjerner og gemt fremskridt.
+- `src/audio/` laver lydeffekterne med Web Audio, så der ikke er lydfiler.
 - `src/render/` er Three.js-scenen: banen, kanonen, strålen og glitches.
-- `src/ui/` styrer HUD, skydere, tekstfelt og tastatur.
+- `src/ui/` styrer startmenu, HUD, skydere, tekstfelt og tastatur.
 - `src/main.ts` binder det hele sammen og kører spilløkken.
+
+## Baner
+
+Banerne er defineret i `src/game/levels.ts`. Hver bane er en liste af bølger, og hver bølge beskriver grupper af glitches (antal, mulige hældninger og om de marcherer), enkelte glitches, ekstra skud og et tip. Bølgerne laves tilfældigt ud fra beskrivelsen, så de er forskellige hver gang.
+
+Stjerner: ★ for at klare banen, ★★ uden ekstra skud, ★★★ også uden sigtelinje og koordinater.

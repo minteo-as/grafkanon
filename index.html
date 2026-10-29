@@ -15,18 +15,24 @@
     <div class="app">
       <main class="stage" id="stage">
         <div class="hud">
-          <span class="chip">Bølge <b id="hudWave">1</b></span>
+          <span class="chip"><span id="hudLevel"></span> · Bølge <b id="hudWave">1</b></span>
           <span class="chip">Skud <b id="hudAmmo"></b></span>
           <span class="chip">Point <b id="hudScore">0</b></span>
-          <span class="chip mult">Pointgange <b id="hudMult">×1</b> <small id="hudMultNext" hidden></small></span>
+          <span class="chip">Pointgange <b id="hudMult">×1</b> <small id="hudMultNext" hidden></small></span>
+          <span class="chip march" id="hudMarch" hidden>Marchører rykker om <b id="hudMarchTime"></b> s</span>
+          <span class="hud-buttons">
+            <button class="chip chip-btn" id="hudSound" type="button" aria-pressed="true">Lyd til</button>
+            <button class="chip chip-btn" id="hudMenu" type="button">Menu</button>
+          </span>
         </div>
         <div class="toast" id="toast" aria-live="polite"></div>
         <p class="hint" id="hint"></p>
         <div class="overlay" id="overlay" hidden>
           <div class="overlay-box">
             <h2 id="overlayTitle"></h2>
+            <div class="overlay-stars" id="overlayStars" hidden></div>
             <p id="overlayText"></p>
-            <button class="btn" id="overlayButton" type="button"></button>
+            <div class="overlay-buttons" id="overlayButtons"></div>
           </div>
         </div>
         <div class="no-webgl-msg">
@@ -66,9 +72,30 @@
           <label class="toggle"><input type="checkbox" id="helpCoords" checked /><span>Vis koordinater</span><small>fra = ×1,5</small></label>
         </div>
         <div class="keys">
-          <kbd>Mellemrum</kbd> skyder · <kbd>←</kbd><kbd>→</kbd> ændrer a · <kbd>↑</kbd><kbd>↓</kbd> ændrer b
+          <kbd>Mellemrum</kbd> skyder · <kbd>←</kbd><kbd>→</kbd> ændrer a · <kbd>↑</kbd><kbd>↓</kbd> ændrer b · <kbd>M</kbd> lyd · <kbd>Esc</kbd> menu
         </div>
       </aside>
+      <section class="menu" id="menu" hidden aria-label="Menu">
+        <div class="menu-inner">
+          <h1 class="logo">Graf<span>kanonen</span></h1>
+          <p class="tagline">Glitches har invaderet koordinatsystemet. Sigt med en funktion, og skyd langs grafen.</p>
+          <div class="menu-actions">
+            <button class="btn primary" id="menuContinue" type="button" hidden>Fortsæt banen</button>
+            <button class="btn" id="menuSound" type="button">Lyd: til</button>
+          </div>
+          <h2 class="world-title">Verden 1 · Linjebyen</h2>
+          <ol class="levels" id="levelList"></ol>
+          <details class="howto">
+            <summary>Sådan spiller du</summary>
+            <ul>
+              <li>Indstil <b>a</b> og <b>b</b> i y = ax + b, eller skriv forskriften. Tryk SKYD eller mellemrum.</li>
+              <li>Strålen rammer alt på linjen. Flere glitches i ét skud giver langt flere point: 1 giver 100, 2 giver 400, 3 giver 900.</li>
+              <li>Lilla <b>marchører</b> går ét felt, hver gang uret slår. Skyd dem, før de når kanten.</li>
+              <li>Stjerner: ★ klar banen · ★★ uden ekstra skud · ★★★ også uden sigtelinje og koordinater.</li>
+            </ul>
+          </details>
+        </div>
+      </section>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
