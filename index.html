@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="da">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Grafkanonen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500;700&family=Unbounded:wght@700;800&display=swap"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <main class="stage" id="stage">
+        <div class="hud">
+          <span class="chip">Bølge <b id="hudWave">1</b></span>
+          <span class="chip">Skud <b id="hudAmmo"></b></span>
+          <span class="chip">Point <b id="hudScore">0</b></span>
+          <span class="chip mult">Pointgange <b id="hudMult">×1</b> <small id="hudMultNext" hidden></small></span>
+        </div>
+        <div class="toast" id="toast" aria-live="polite"></div>
+        <p class="hint" id="hint"></p>
+        <div class="overlay" id="overlay" hidden>
+          <div class="overlay-box">
+            <h2 id="overlayTitle"></h2>
+            <p id="overlayText"></p>
+            <button class="btn" id="overlayButton" type="button"></button>
+          </div>
+        </div>
+        <div class="no-webgl-msg">
+          <h2>3D virker ikke her</h2>
+          <p>Din browser kunne ikke starte 3D-visningen. Prøv en nyere udgave af Chrome, Edge, Firefox eller Safari.</p>
+        </div>
+      </main>
+
+      <aside class="panel">
+        <div class="brand">Graf<span>kanonen</span></div>
+        <div>
+          <div class="plabel">Din funktion</div>
+          <div class="formula" id="formula">y = x</div>
+          <div class="warn" id="warn"></div>
+        </div>
+        <div class="slider">
+          <label for="sliderA">a</label>
+          <input type="range" id="sliderA" min="-4" max="4" step="0.5" value="1" />
+          <output id="outA" for="sliderA">1</output>
+        </div>
+        <div class="slider">
+          <label for="sliderB">b</label>
+          <input type="range" id="sliderB" min="-10" max="10" step="1" value="0" />
+          <output id="outB" for="sliderB">0</output>
+        </div>
+        <div>
+          <label class="plabel" for="funcInput">Eller skriv selv</label>
+          <form class="typein" id="funcForm">
+            <input id="funcInput" type="text" autocomplete="off" spellcheck="false" placeholder="y = 0,5x − 2" />
+            <button class="btn" type="submit">Brug</button>
+          </form>
+          <div class="err" id="funcError" aria-live="polite"></div>
+        </div>
+        <button class="btn fire" id="fire" type="button">SKYD</button>
+        <div class="toggles">
+          <label class="toggle"><input type="checkbox" id="helpAim" checked /><span>Sigtelinje</span><small>fra = ×2</small></label>
+          <label class="toggle"><input type="checkbox" id="helpCoords" checked /><span>Vis koordinater</span><small>fra = ×1,5</small></label>
+        </div>
+        <div class="keys">
+          <kbd>Mellemrum</kbd> skyder · <kbd>←</kbd><kbd>→</kbd> ændrer a · <kbd>↑</kbd><kbd>↓</kbd> ændrer b
+        </div>
+      </aside>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
