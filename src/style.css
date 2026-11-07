@@ -257,6 +257,13 @@ body {
   color: var(--aim);
   min-height: 1.3em;
 }
+.sliders {
+  display: grid;
+  gap: 14px;
+}
+.slider.locked {
+  opacity: 0.55;
+}
 .slider {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) 56px;
@@ -427,6 +434,13 @@ kbd {
   text-transform: uppercase;
   color: var(--muted);
   margin: 10px 0 0;
+}
+.worlds {
+  display: grid;
+  gap: 18px;
+}
+.worlds .world-title {
+  margin-bottom: 8px;
 }
 .levels {
   list-style: none;

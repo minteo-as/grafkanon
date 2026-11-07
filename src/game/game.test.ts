@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { distanceToLine, type Line } from '../math/line';
+import { distanceToLine } from '../math/line';
+import type { Aim } from '../math/path';
 import { Game } from './game';
-import { LEVELS, type Level } from './levels';
+import { LEVELS, weaponOf, type Level } from './levels';
 import { isUnlocked, recordLevel, type Progress } from './progress';
 import { mulberry32 } from './rng';
 import { helpMultiplier, hitIncrement, shotPoints, starsFor } from './scoring';
@@ -11,7 +12,7 @@ describe('generateWave', () => {
   it('laver bølger, der kan klares med de skud, man får', () => {
     for (let seed = 1; seed <= 100; seed++) {
       const rng = mulberry32(seed);
-      for (const level of LEVELS) {
+      for (const level of LEVELS.filter(l => weaponOf(l) === 'laser')) {
         for (const spec of level.waves) {
           const layout = generateWave(spec, rng);
           expect(layout.solution.length).toBeLessThanOrEqual(layout.ammo);
@@ -19,7 +20,7 @@ describe('generateWave', () => {
             expect(Number.isInteger(e.x) && Number.isInteger(e.y)).toBe(true);
             expect(Math.abs(e.x)).toBeLessThanOrEqual(SPAWN_LIMIT);
             expect(Math.abs(e.y)).toBeLessThanOrEqual(SPAWN_LIMIT);
-            expect(layout.solution.some(l => distanceToLine(l, e.x, e.y) < 1e-9)).toBe(true);
+            expect(layout.solution.some(l => l.kind === 'line' && distanceToLine(l, e.x, e.y) < 1e-9)).toBe(true);
             if (e.march) expect(hopsToEscape(e, e.march)).toBeGreaterThanOrEqual(MIN_HOPS);
           }
           const keys = new Set(layout.enemies.map(e => `${e.x},${e.y}`));
@@ -69,13 +70,13 @@ function knownGame(level: Level = LEVELS[0], seed = 7) {
   const game = new Game(seed);
   game.startLevel(level);
   const rng = mulberry32(seed);
-  const solutions: Line[][] = level.waves.map(spec => generateWave(spec, rng).solution);
+  const solutions: Aim[][] = level.waves.map(spec => generateWave(spec, rng, weaponOf(level)).solution);
   return { game, solutions };
 }
 
-function clearWave(game: Game, solution: Line[]) {
-  for (const line of solution) {
-    game.setLine(line);
+function clearWave(game: Game, solution: Aim[]) {
+  for (const aim of solution) {
+    game.setAim(aim);
     expect(game.fire()).not.toBeNull();
     game.completeShot();
   }
@@ -92,7 +93,7 @@ describe('Game', () => {
 
   it('går til outOfAmmo, når skuddene slipper op', () => {
     const { game } = knownGame();
-    game.setLine({ a: 0, b: 9.5 });
+    game.setAim({ kind: 'line', a: 0, b: 9.5 });
     while (game.ammo > 0) {
       game.fire();
       game.completeShot();
@@ -103,7 +104,7 @@ describe('Game', () => {
 
   it('nulstiller point og glitches ved nyt forsøg', () => {
     const { game, solutions } = knownGame();
-    game.setLine(solutions[0][0]);
+    game.setAim(solutions[0][0]);
     game.fire();
     game.completeShot();
     expect(game.score).toBeGreaterThan(0);
@@ -115,7 +116,7 @@ describe('Game', () => {
 
   it('skyder ikke, når linjen er uden for banen', () => {
     const { game } = knownGame();
-    game.setLine({ a: 0, b: 30 });
+    game.setAim({ kind: 'line', a: 0, b: 30 });
     expect(game.fire()).toBeNull();
     expect(game.ammo).toBe(game.ammoTotal);
   });
@@ -158,7 +159,7 @@ describe('marchører', () => {
     expect(game.update(0.02)).toBe('hop');
     expect(marcher.y).toBe(start.y - 1);
 
-    game.setLine({ a: 0, b: 9.5 });
+    game.setAim({ kind: 'line', a: 0, b: 9.5 });
     game.fire();
     expect(game.update(interval * 3)).toBeNull();
     expect(marcher.y).toBe(start.y - 1);
@@ -168,10 +169,11 @@ describe('marchører', () => {
     const { game, solutions } = knownGame(marchLevel);
     game.update(game.spec.marchInterval!);
     const [groupLine, singleLine] = solutions[0];
-    game.setLine({ a: groupLine.a, b: groupLine.b - 1 });
+    if (groupLine.kind !== 'line') throw new Error('forventede en linje');
+    game.setAim({ ...groupLine, b: groupLine.b - 1 });
     game.fire();
     expect(game.completeShot().hits).toBe(3);
-    game.setLine(singleLine);
+    game.setAim(singleLine);
     game.fire();
     game.completeShot();
     expect(game.phase).toBe('cleared');

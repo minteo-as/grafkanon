@@ -1,4 +1,4 @@
-import { LEVELS } from '../game/levels';
+import { LEVELS, WORLDS } from '../game/levels';
 import { isUnlocked, type Progress } from '../game/progress';
 import { fmtScore } from './hud';
 
@@ -14,7 +14,7 @@ export const starString = (n: number): string => '★'.repeat(n) + '☆'.repeat(
 
 export class Menu {
   private root = $('menu');
-  private list = $('levelList');
+  private list = $('worldList');
   private continueButton = $<HTMLButtonElement>('menuContinue');
   private soundButton = $<HTMLButtonElement>('menuSound');
 
@@ -30,31 +30,45 @@ export class Menu {
   show(progress: Progress, canContinue: boolean, muted: boolean): void {
     this.continueButton.hidden = !canContinue;
     this.setMuted(muted);
+    const levelItems = LEVELS.map((level, i) => {
+      const li = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'level';
+      const unlocked = isUnlocked(progress, i);
+      const number = LEVELS.slice(0, i + 1).filter(l => l.world === level.world).length;
+      const saved = progress.levels[level.id];
+      button.disabled = !unlocked;
+      button.innerHTML = `
+        <span class="level-num">${number}</span>
+        <span class="level-text"><b></b><span></span></span>
+        <span class="level-meta"></span>`;
+      button.querySelector('b')!.textContent = level.name;
+      button.querySelector('.level-text span')!.textContent = level.topic;
+      const meta = button.querySelector('.level-meta')!;
+      if (!unlocked) meta.textContent = 'Låst';
+      else if (saved) {
+        meta.innerHTML = `<span class="stars" aria-label="${saved.stars} af 3 stjerner"></span><small></small>`;
+        meta.querySelector('.stars')!.textContent = starString(saved.stars);
+        meta.querySelector('small')!.textContent = `${fmtScore(saved.best)} point`;
+      } else meta.textContent = 'Ny';
+      button.addEventListener('click', () => this.cb.onPlay(i));
+      li.append(button);
+      return li;
+    });
     this.list.replaceChildren(
-      ...LEVELS.map((level, i) => {
-        const li = document.createElement('li');
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'level';
-        const unlocked = isUnlocked(progress, i);
-        const saved = progress.levels[level.id];
-        button.disabled = !unlocked;
-        button.innerHTML = `
-          <span class="level-num">${i + 1}</span>
-          <span class="level-text"><b></b><span></span></span>
-          <span class="level-meta"></span>`;
-        button.querySelector('b')!.textContent = level.name;
-        button.querySelector('.level-text span')!.textContent = level.topic;
-        const meta = button.querySelector('.level-meta')!;
-        if (!unlocked) meta.textContent = 'Låst';
-        else if (saved) {
-          meta.innerHTML = `<span class="stars" aria-label="${saved.stars} af 3 stjerner"></span><small></small>`;
-          meta.querySelector('.stars')!.textContent = starString(saved.stars);
-          meta.querySelector('small')!.textContent = `${fmtScore(saved.best)} point`;
-        } else meta.textContent = 'Ny';
-        button.addEventListener('click', () => this.cb.onPlay(i));
-        li.append(button);
-        return li;
+      ...WORLDS.map(world => {
+        const section = document.createElement('section');
+        const title = document.createElement('h2');
+        title.className = 'world-title';
+        title.textContent = `Verden ${world.id} · ${world.name}`;
+        const ol = document.createElement('ol');
+        ol.className = 'levels';
+        LEVELS.forEach((level, i) => {
+          if (level.world === world.id) ol.append(levelItems[i]);
+        });
+        section.append(title, ol);
+        return section;
       }),
     );
     this.root.hidden = false;

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { disposeSprite, textSprite } from './labels';
+import type { View } from './world';
 
 interface Effect {
   object: THREE.Object3D;
@@ -19,7 +20,8 @@ export class Effects {
 
   constructor(private scene: THREE.Scene) {}
 
-  explosion(at: THREE.Vector3, color: number): void {
+  /** På gulvet breder chokbølgen sig langs gulvet; i sidebilledet vender den mod kameraet. */
+  explosion(at: THREE.Vector3, color: number, view: View = 'floor'): void {
     // Hvidt glimt
     const flash = new THREE.Mesh(
       flashGeo,
@@ -36,8 +38,10 @@ export class Effects {
       ringGeo,
       new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }),
     );
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.set(at.x, 0.05, at.z);
+    if (view === 'floor') {
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(at.x, 0.05, at.z);
+    } else ring.position.copy(at);
     this.add(ring, 0.45, (e, _dt, t) => {
       e.object.scale.setScalar(1 + t * 4);
       (ring.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - t);

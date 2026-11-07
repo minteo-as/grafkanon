@@ -3,7 +3,7 @@ import type { Enemy } from '../game/game';
 import { fmtPoint } from '../math/format';
 import type { Effects } from './effects';
 import { disposeSprite, textSprite } from './labels';
-import { COLORS, prefersReducedMotion, toWorld } from './world';
+import { COLORS, FLOOR, prefersReducedMotion, type Plane } from './world';
 
 const BODY_HEIGHT = 0.6;
 const SPAWN_TIME = 0.35;
@@ -12,9 +12,11 @@ const HOP_TIME = 0.25;
 
 interface View {
   group: THREE.Group;
+  baseY: number; // kroppens højde over punktet
   body: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
   label: THREE.Sprite;
   marcher: boolean;
+  color: number;
   cell: { x: number; y: number };
   hopFrom: THREE.Vector3;
   hopTo: THREE.Vector3;
@@ -29,6 +31,7 @@ const staticGeo = new THREE.IcosahedronGeometry(0.42, 0);
 const marcherGeo = new THREE.OctahedronGeometry(0.48, 0);
 const ringGeo = new THREE.RingGeometry(0.32, 0.46, 20);
 const arrowGeo = new THREE.ConeGeometry(0.2, 0.45, 3);
+const rotorGeo = new THREE.TorusGeometry(0.62, 0.05, 6, 24);
 
 const easeOutBack = (t: number) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2;
 
@@ -44,8 +47,13 @@ export class EnemyLayer {
   private time = 0;
   private reduced = prefersReducedMotion();
   private showCoordinates = true;
+  private plane: Plane = FLOOR;
 
   constructor(private scene: THREE.Scene, private effects: Effects) {}
+
+  setPlane(plane: Plane): void {
+    this.plane = plane;
+  }
 
   /** Erstatter alle glitches med en ny bølge. */
   set(enemies: Enemy[], showCoordinates: boolean): void {
@@ -54,26 +62,37 @@ export class EnemyLayer {
     this.showCoordinates = showCoordinates;
     enemies.forEach((e, i) => {
       const marcher = !!e.march;
-      const color = marcher ? COLORS.marcher : COLORS.enemy;
+      const side = this.plane.view === 'side';
+      // I sidebilledet svæver droner i luften; glitches på jorden sidder oven på jorden
+      const drone = side && e.y > 0;
+      const color = marcher ? COLORS.marcher : drone ? COLORS.drone : COLORS.enemy;
+      const baseY = side ? (drone ? 0 : 0.42) : BODY_HEIGHT;
       const group = new THREE.Group();
-      group.position.copy(toWorld(e.x, e.y));
+      group.position.copy(this.plane.toWorld(e.x, e.y));
       const body = new THREE.Mesh(
         marcher ? marcherGeo : staticGeo,
         new THREE.MeshStandardMaterial({
           color,
-          emissive: marcher ? COLORS.marcherGlow : COLORS.enemyGlow,
+          emissive: marcher ? COLORS.marcherGlow : drone ? COLORS.droneGlow : COLORS.enemyGlow,
           flatShading: true,
           transparent: true,
         }),
       );
-      body.position.y = BODY_HEIGHT;
-      const ring = new THREE.Mesh(
-        ringGeo,
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
-      );
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = 0.03;
-      group.add(body, ring);
+      body.position.y = baseY;
+      group.add(body);
+      if (!side) {
+        const ring = new THREE.Mesh(
+          ringGeo,
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.03;
+        group.add(ring);
+      } else if (drone) {
+        const rotor = new THREE.Mesh(rotorGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 }));
+        rotor.rotation.x = Math.PI / 2;
+        body.add(rotor);
+      }
 
       if (e.march) {
         // Pil på gulvet, der viser hvilken vej marchøren går
@@ -87,13 +106,15 @@ export class EnemyLayer {
       }
 
       const label = labelFor(e.x, e.y, marcher);
-      label.position.y = 1.4;
+      label.position.y = baseY + 0.85;
       label.visible = showCoordinates;
       group.add(label);
       group.scale.setScalar(0.001);
       this.scene.add(group);
       this.views.set(e.id, {
         group,
+        baseY,
+        color,
         body,
         label,
         marcher,
@@ -120,8 +141,8 @@ export class EnemyLayer {
     if (!v || v.dying > 0) return;
     v.dying = 1e-4;
     v.label.visible = false;
-    const at = v.group.position.clone().setY(BODY_HEIGHT);
-    this.effects.explosion(at, v.marcher ? COLORS.marcher : COLORS.enemy);
+    const at = v.group.position.clone().add(new THREE.Vector3(0, v.baseY, 0));
+    this.effects.explosion(at, v.color, this.plane.view);
     this.effects.floatingText(at, pointsText, '#ffd166');
   }
 
@@ -133,12 +154,12 @@ export class EnemyLayer {
       // Marchøren har taget et skridt: hop derhen og skift koordinaterne
       v.cell = { x: e.x, y: e.y };
       v.hopFrom.copy(v.group.position);
-      v.hopTo.copy(toWorld(e.x, e.y));
+      v.hopTo.copy(this.plane.toWorld(e.x, e.y));
       v.hopT = 0;
       v.group.remove(v.label);
       disposeSprite(v.label);
       v.label = labelFor(e.x, e.y, v.marcher);
-      v.label.position.y = 1.4;
+      v.label.position.y = v.baseY + 0.85;
       v.label.visible = this.showCoordinates;
       v.group.add(v.label);
     }
@@ -154,7 +175,7 @@ export class EnemyLayer {
         const t = Math.min(1, Math.max(0, (v.age - v.delay) / SPAWN_TIME));
         v.group.scale.setScalar(Math.max(0.001, easeOutBack(t)));
         if (!this.reduced) {
-          v.body.position.y = BODY_HEIGHT + Math.sin(this.time * 2.2 + v.phase) * 0.08;
+          v.body.position.y = v.baseY + Math.sin(this.time * 2.2 + v.phase) * 0.08;
           v.body.rotation.y += dt * (v.marcher ? 1.6 : 0.9);
           v.body.rotation.x += dt * 0.4;
         }

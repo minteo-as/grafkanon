@@ -16,10 +16,30 @@ export const COLORS = {
   aim: 0xffd166,
   turret: 0x3d5a80,
   turretHead: 0x5a7fae,
+  drone: 0xffb347,
+  droneGlow: 0x5a3000,
+  wall: 0x56637a,
+  wallTop: 0x8796ae,
+  ground: 0x1a2a40,
+  mountain: 0x16243a,
 };
 
 /** Matematikkens (x, y) ligger på gulvet: x mod højre, y væk fra kameraet. */
 export const toWorld = (x: number, y: number, height = 0): THREE.Vector3 => new THREE.Vector3(x, height, -y);
+
+/**
+ * Hvor koordinatsystemet står i 3D. Laseren skyder på gulvet (floor), granaten i et lodret
+ * sidebillede (side), hvor y peger opad. "lift" flytter væk fra planet: op fra gulvet eller ud mod kameraet.
+ */
+export type View = 'floor' | 'side';
+
+export interface Plane {
+  view: View;
+  toWorld(x: number, y: number, lift?: number): THREE.Vector3;
+}
+
+export const FLOOR: Plane = { view: 'floor', toWorld };
+export const SIDE: Plane = { view: 'side', toWorld: (x, y, lift = 0) => new THREE.Vector3(x, y, lift) };
 
 export const prefersReducedMotion = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -29,6 +49,7 @@ export class World {
   readonly camera = new THREE.PerspectiveCamera(42, 4 / 3, 0.1, 200);
   private basePosition = new THREE.Vector3();
   private lookTarget = new THREE.Vector3(0, 0, 0.9);
+  private view: View = 'floor';
   private trauma = 0;
 
   constructor(private container: HTMLElement) {
@@ -44,6 +65,11 @@ export class World {
     this.scene.add(sun);
 
     new ResizeObserver(() => this.resize()).observe(container);
+    this.resize();
+  }
+
+  setView(view: View): void {
+    this.view = view;
     this.resize();
   }
 
@@ -70,8 +96,15 @@ export class World {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     // Smalle skærme har brug for, at kameraet trækkes længere tilbage
-    const dist = 25.5 * Math.max(1, 1.3 / this.camera.aspect);
-    this.basePosition.set(0, dist * 0.76, dist * 0.65);
+    if (this.view === 'floor') {
+      const dist = 25.5 * Math.max(1, 1.3 / this.camera.aspect);
+      this.basePosition.set(0, dist * 0.76, dist * 0.65);
+      this.lookTarget.set(0, 0, 0.9);
+    } else {
+      const dist = 23 * Math.max(1, 1.5 / this.camera.aspect);
+      this.basePosition.set(0, 7.5, dist);
+      this.lookTarget.set(0, 5.6, 0);
+    }
     this.camera.updateProjectionMatrix();
   }
 }

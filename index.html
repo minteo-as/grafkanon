@@ -48,16 +48,7 @@
           <div class="formula" id="formula">y = x</div>
           <div class="warn" id="warn"></div>
         </div>
-        <div class="slider">
-          <label for="sliderA">a</label>
-          <input type="range" id="sliderA" min="-4" max="4" step="0.5" value="1" />
-          <output id="outA" for="sliderA">1</output>
-        </div>
-        <div class="slider">
-          <label for="sliderB">b</label>
-          <input type="range" id="sliderB" min="-10" max="10" step="1" value="0" />
-          <output id="outB" for="sliderB">0</output>
-        </div>
+        <div class="sliders" id="sliders"></div>
         <div>
           <label class="plabel" for="funcInput">Eller skriv selv</label>
           <form class="typein" id="funcForm">
@@ -71,9 +62,7 @@
           <label class="toggle"><input type="checkbox" id="helpAim" checked /><span>Sigtelinje</span><small>fra = ×2</small></label>
           <label class="toggle"><input type="checkbox" id="helpCoords" checked /><span>Vis koordinater</span><small>fra = ×1,5</small></label>
         </div>
-        <div class="keys">
-          <kbd>Mellemrum</kbd> skyder · <kbd>←</kbd><kbd>→</kbd> ændrer a · <kbd>↑</kbd><kbd>↓</kbd> ændrer b · <kbd>M</kbd> lyd · <kbd>Esc</kbd> menu
-        </div>
+        <div class="keys" id="keysHint"></div>
       </aside>
       <section class="menu" id="menu" hidden aria-label="Menu">
         <div class="menu-inner">
@@ -83,14 +72,14 @@
             <button class="btn primary" id="menuContinue" type="button" hidden>Fortsæt banen</button>
             <button class="btn" id="menuSound" type="button">Lyd: til</button>
           </div>
-          <h2 class="world-title">Verden 1 · Linjebyen</h2>
-          <ol class="levels" id="levelList"></ol>
+          <div class="worlds" id="worldList"></div>
           <details class="howto">
             <summary>Sådan spiller du</summary>
             <ul>
               <li>Indstil <b>a</b> og <b>b</b> i y = ax + b, eller skriv forskriften. Tryk SKYD eller mellemrum.</li>
               <li>Strålen rammer alt på linjen. Flere glitches i ét skud giver langt flere point: 1 giver 100, 2 giver 400, 3 giver 900.</li>
               <li>Lilla <b>marchører</b> går ét felt, hver gang uret slår. Skyd dem, før de når kanten.</li>
+              <li>I Parabelbjergene skyder du med <b>granatkasteren</b>: y = a(x − h)² + k. Granaten flyver fra det venstre nulpunkt til det højre og rammer alt på buen. Mure stopper den, hvis buen er for lav.</li>
               <li>Stjerner: ★ klar banen · ★★ uden ekstra skud · ★★★ også uden sigtelinje og koordinater.</li>
             </ul>
           </details>

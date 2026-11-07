@@ -1,10 +1,10 @@
 // Spillets regler uden grafik, så de kan testes for sig.
 
-import { clipToSquare, distanceToLine, type Line, type Segment } from '../math/line';
-import { LEVELS, type Level } from './levels';
+import { computePath, type Aim, type Path, type PathResult, type Wall } from '../math/path';
+import { LEVELS, weaponOf, type Level } from './levels';
 import { mulberry32, type Rng } from './rng';
 import { BONUS_PER_SPARE_SHOT, helpMultiplier, shotPoints, starsFor, type Help, type WaveResult } from './scoring';
-import { ARENA_HALF, generateWave, isOutside, type March, type Point, type WaveLayout, type WaveSpec } from './waves';
+import { ARENA_HALF, generateWave, isOutside, type March, type Point, type WaveLayout, type WaveSpec, type Weapon } from './waves';
 
 export const HIT_RADIUS = 0.3;
 const DEFAULT_MARCH_INTERVAL = 3;
@@ -18,8 +18,8 @@ export interface Enemy extends Point {
 }
 
 export interface Shot {
-  line: Line;
-  segment: Segment;
+  aim: Aim;
+  path: Path;
   /** Ramte glitches sorteret efter x, i den rækkefølge strålen når dem. */
   hits: Enemy[];
   multiplier: number;
@@ -37,6 +37,10 @@ export interface LevelResult {
   score: number;
 }
 
+export function defaultAim(weapon: Weapon): Aim {
+  return weapon === 'grenade' ? { kind: 'parabola', a: -1, h: 0, k: 6 } : { kind: 'line', a: 1, b: 0 };
+}
+
 export class Game {
   level: Level = LEVELS[0];
   waveIndex = 0;
@@ -44,7 +48,8 @@ export class Game {
   ammo = 0;
   phase: Phase = 'aiming';
   enemies: Enemy[] = [];
-  line: Line = { a: 1, b: 0 };
+  walls: Wall[] = [];
+  aim: Aim = defaultAim('laser');
   help: Help = { aimLine: true, coordinates: true };
 
   // Hjælp, der har været slået til på noget tidspunkt i bølgen. Så kan man ikke
@@ -86,8 +91,13 @@ export class Game {
     return this.layout?.ammo ?? 0;
   }
 
-  get segment(): Segment | null {
-    return clipToSquare(this.line, ARENA_HALF);
+  get weapon(): Weapon {
+    return weaponOf(this.level);
+  }
+
+  /** Hvor det næste skud vil gå hen, eller hvorfor det ikke kan skydes. */
+  get path(): PathResult {
+    return computePath(this.aim, ARENA_HALF, this.walls);
   }
 
   /** Pointgangen for den igangværende bølge. */
@@ -126,6 +136,9 @@ export class Game {
 
   startLevel(level: Level): void {
     this.level = level;
+    const kind = this.weapon === 'grenade' ? 'parabola' : 'line';
+    if (this.aim.kind !== kind) this.aim = defaultAim(this.weapon);
+    if (this.aim.kind === 'parabola' && level.locked?.a !== undefined) this.aim = { ...this.aim, a: level.locked.a };
     this.score = 0;
     this.results = [];
     this.startWave(0);
@@ -141,8 +154,8 @@ export class Game {
     this.loadLayout();
   }
 
-  setLine(line: Line): void {
-    this.line = { ...line };
+  setAim(aim: Aim): void {
+    this.aim = { ...aim };
   }
 
   setHelp(help: Help): void {
@@ -178,14 +191,15 @@ export class Game {
 
   fire(): Shot | null {
     if (this.phase !== 'aiming' || this.ammo <= 0) return null;
-    const segment = this.segment;
-    if (!segment) return null;
+    const result = this.path;
+    if (!result.ok) return null;
+    const path = result.path;
     this.ammo--;
     const hits = this.enemies
-      .filter(e => e.alive && distanceToLine(this.line, e.x, e.y) < HIT_RADIUS)
+      .filter(e => e.alive && path.distanceTo(e.x, e.y) < HIT_RADIUS)
       .sort((p, q) => p.x - q.x);
     hits.forEach(e => (e.alive = false));
-    this.shot = { line: { ...this.line }, segment, hits, multiplier: this.multiplier };
+    this.shot = { aim: { ...this.aim }, path, hits, multiplier: this.multiplier };
     this.phase = 'firing';
     return this.shot;
   }
@@ -215,7 +229,7 @@ export class Game {
 
   private startWave(index: number): void {
     this.waveIndex = index;
-    this.layout = generateWave(this.spec, this.rng);
+    this.layout = generateWave(this.spec, this.rng, this.weapon);
     this.scoreAtWaveStart = this.score;
     this.loadLayout();
   }
@@ -229,6 +243,7 @@ export class Game {
       alive: true,
       ...(p.march ? { march: { ...p.march } } : {}),
     }));
+    this.walls = this.layout.walls.map(w => ({ ...w }));
     this.ammo = this.layout.ammo;
     this.phase = 'aiming';
     this.helpUsed = { ...this.help };

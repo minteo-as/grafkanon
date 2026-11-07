@@ -1,11 +1,14 @@
 import * as THREE from 'three';
 import type { Shot } from '../game/game';
-import { yAt, type Line, type Segment } from '../math/line';
-import { COLORS, toWorld } from './world';
+import { samplePath, type Path } from '../math/path';
+import { COLORS, FLOOR, type Plane } from './world';
 
-const HEIGHT = 0.6;
+const LASER_HEIGHT = 0.6;
 const GROW = 0.45;
 const FADE = 0.3;
+
+/** Hvor højt over gulvet (eller hvor langt ud mod kameraet) banerne tegnes. */
+export const liftFor = (plane: Plane): number => (plane.view === 'floor' ? LASER_HEIGHT : 0);
 
 /** Den stiplede sigtelinje, der viser grafen før skuddet. */
 export class AimLine {
@@ -13,24 +16,29 @@ export class AimLine {
     new THREE.BufferGeometry(),
     new THREE.LineDashedMaterial({ color: COLORS.aim, dashSize: 0.35, gapSize: 0.22 }),
   );
+  private plane: Plane = FLOOR;
 
   constructor(scene: THREE.Scene) {
     scene.add(this.line);
   }
 
-  set(line: Line, segment: Segment | null, visible: boolean): void {
-    this.line.visible = visible && !!segment;
-    if (!segment) return;
+  setPlane(plane: Plane): void {
+    this.plane = plane;
+  }
+
+  set(path: Path | null, visible: boolean): void {
+    this.line.visible = visible && !!path;
+    if (!path) return;
+    const lift = liftFor(this.plane);
     this.line.geometry.dispose();
-    this.line.geometry = new THREE.BufferGeometry().setFromPoints([
-      toWorld(segment.xa, yAt(line, segment.xa), HEIGHT),
-      toWorld(segment.xb, yAt(line, segment.xb), HEIGHT),
-    ]);
+    this.line.geometry = new THREE.BufferGeometry().setFromPoints(
+      samplePath(path, 0.1).map(p => this.plane.toWorld(p.x, p.y, lift)),
+    );
     this.line.computeLineDistances();
   }
 }
 
-/** Strålen vokser hen ad grafen og falmer bagefter. */
+/** Laserstrålen vokser hen ad linjen og falmer bagefter. */
 export class Beam {
   private group = new THREE.Group();
   private glow: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
@@ -65,13 +73,13 @@ export class Beam {
     const shot = this.shot;
     if (!shot) return null;
     this.t += dt;
-    const { xa, xb } = shot.segment;
+    const { xa, xb, f } = shot.path;
     const headX = xa + (xb - xa) * Math.min(1, this.t / GROW);
-    const from = toWorld(xa, yAt(shot.line, xa), HEIGHT);
-    const to = toWorld(headX, yAt(shot.line, headX), HEIGHT);
+    const from = FLOOR.toWorld(xa, f(xa), LASER_HEIGHT);
+    const to = FLOOR.toWorld(headX, f(headX), LASER_HEIGHT);
     const fade = this.t > GROW ? Math.max(0, 1 - (this.t - GROW) / FADE) : 1;
     this.group.position.copy(from).lerp(to, 0.5);
-    this.group.rotation.y = Math.atan(shot.line.a);
+    this.group.rotation.y = Math.atan2(f(xa + 1) - f(xa), 1);
     const thickness = 0.3 + 0.7 * fade;
     this.group.scale.set(Math.max(0.001, from.distanceTo(to)), thickness, thickness);
     this.glow.material.opacity = 0.3 * fade;

@@ -4,13 +4,15 @@ import { Game, type Shot } from './game/game';
 import { LEVELS } from './game/levels';
 import { loadProgress, recordLevel, saveProgress } from './game/progress';
 import { hitIncrement } from './game/scoring';
-import { ARENA_HALF } from './game/waves';
-import { buildArena } from './render/arena';
+import { ARENA_HALF, SIDE_TOP } from './game/waves';
+import { buildFloorArena, buildSideArena } from './render/arena';
 import { AimLine, Beam } from './render/beam';
 import { Effects } from './render/effects';
 import { EnemyLayer } from './render/enemies';
+import { Grenade } from './render/grenade';
 import { Turret } from './render/turret';
-import { World } from './render/world';
+import { WallLayer } from './render/walls';
+import { COLORS, FLOOR, SIDE, World } from './render/world';
 import { Controls } from './ui/controls';
 import { fmtScore, Hud } from './ui/hud';
 import { Menu } from './ui/menu';
@@ -43,10 +45,15 @@ async function main(): Promise<void> {
   const game = new Game();
   // Kun under udvikling: gør spillet tilgængeligt i konsollen til fejlfinding
   if (import.meta.env.DEV) Object.assign(window, { __game: game });
-  buildArena(world.scene, ARENA_HALF);
+  const floorArena = buildFloorArena(ARENA_HALF);
+  const sideArena = buildSideArena(ARENA_HALF, SIDE_TOP);
+  sideArena.visible = false;
+  world.scene.add(floorArena, sideArena);
   const turret = new Turret(world.scene, ARENA_HALF);
   const aim = new AimLine(world.scene);
   const beam = new Beam(world.scene);
+  const grenade = new Grenade(world.scene);
+  const walls = new WallLayer(world.scene);
   const effects = new Effects(world.scene);
   const enemies = new EnemyLayer(world.scene, effects);
   const hud = new Hud();
@@ -61,16 +68,32 @@ async function main(): Promise<void> {
     controls.setFireEnabled(game.phase === 'aiming' && game.ammo > 0);
   };
 
-  const showLine = () => {
-    const segment = game.segment;
-    controls.showLine(game.line, segment);
-    aim.set(game.line, segment, game.help.aimLine);
-    turret.aimAt(game.line, segment);
+  const showAim = () => {
+    const result = game.path;
+    const path = result.ok ? result.path : null;
+    controls.showAim(game.aim, result.ok ? null : result.reason);
+    aim.set(path, game.help.aimLine);
+    turret.aimAlong(path);
+  };
+
+  /** Laseren skyder på gulvet, granaten i sidebilledet. */
+  const applyWeapon = () => {
+    const plane = game.weapon === 'laser' ? FLOOR : SIDE;
+    world.setView(plane.view);
+    floorArena.visible = plane === FLOOR;
+    sideArena.visible = plane === SIDE;
+    turret.setPlane(plane);
+    aim.setPlane(plane);
+    enemies.setPlane(plane);
+    controls.setWeapon(game.weapon, game.level.locked ?? {});
+    showAim();
   };
 
   const loadWave = () => {
     hud.hideOverlay();
     enemies.set(game.enemies, game.help.coordinates);
+    walls.set(game.walls);
+    showAim();
     hud.hint(game.hint);
     refresh();
   };
@@ -93,6 +116,7 @@ async function main(): Promise<void> {
     levelIndex = index;
     inLevel = true;
     game.startLevel(LEVELS[index]);
+    applyWeapon();
     menu.hide();
     controls.enabled = true;
     loadWave();
@@ -112,28 +136,34 @@ async function main(): Promise<void> {
   const menu = new Menu({ onPlay: startLevel, onContinue: closeMenu, onToggleSound: toggleSound });
 
   const controls = new Controls({
-    onLine: line => {
-      game.setLine(line);
-      showLine();
+    onAim: next => {
+      game.setAim(next);
+      showAim();
     },
     onHelp: help => {
       game.setHelp(help);
-      aim.set(game.line, game.segment, help.aimLine);
+      const result = game.path;
+      aim.set(result.ok ? result.path : null, help.aimLine);
       enemies.setCoordinatesVisible(help.coordinates);
       refresh();
     },
     onFire: () => {
       if (game.phase !== 'aiming' || hud.overlayVisible) return;
-      if (!game.segment) {
-        hud.toast('Linjen rammer ikke banen');
+      if (!game.path.ok) {
+        hud.toast(game.weapon === 'laser' ? 'Linjen rammer ikke banen' : 'Den bue kan ikke skydes');
         return;
       }
       shot = game.fire();
       if (!shot) return;
       killed = 0;
-      beam.start(shot);
       turret.kick();
-      sfx.laser();
+      if (game.weapon === 'laser') {
+        beam.start(shot);
+        sfx.laser();
+      } else {
+        grenade.start(shot);
+        sfx.grenade();
+      }
       refresh();
     },
     onMenu: openMenu,
@@ -142,6 +172,8 @@ async function main(): Promise<void> {
   controls.setMuted(progress.muted);
 
   document.addEventListener('keydown', ev => {
+    // Esc, der lige har åbnet menuen (håndteret i Controls), må ikke også lukke den igen
+    if (ev.defaultPrevented) return;
     if (ev.code === 'Escape' && menu.visible && inLevel) {
       ev.preventDefault();
       closeMenu();
@@ -200,7 +232,10 @@ async function main(): Promise<void> {
       window.setTimeout(() => {
         hud.showOverlay({
           title: 'Ikke flere skud',
-          text: `${left} ${left === 1 ? 'glitch' : 'glitches'} tilbage. Kig efter dem, der står på samme linje.`,
+          text:
+            game.weapon === 'laser'
+              ? `${left} ${left === 1 ? 'glitch' : 'glitches'} tilbage. Kig efter dem, der står på samme linje.`
+              : `${left} mål tilbage. Kig efter droner, der kan ligge på samme bue.`,
           buttons: [retryButton],
         });
       }, 650);
@@ -233,7 +268,13 @@ async function main(): Promise<void> {
       turret.update(dt);
       enemies.update(dt, game.enemies);
       effects.update(dt);
-      const progressOfBeam = beam.update(dt);
+      const flight = grenade.update(dt);
+      if (flight?.landed && shot && shot.path.end !== 'edge') {
+        effects.explosion(flight.at, COLORS.beam, 'side');
+        sfx.boom();
+        world.shake(0.45);
+      }
+      const progressOfBeam = beam.update(dt) ?? flight;
       if (shot && progressOfBeam) {
         while (killed < shot.hits.length && shot.hits[killed].x <= progressOfBeam.headX + 1e-6) {
           killed++;
@@ -249,7 +290,7 @@ async function main(): Promise<void> {
   };
 
   game.setHelp(controls.help);
-  showLine();
+  applyWeapon();
   openMenu();
   requestAnimationFrame(tick);
 }
