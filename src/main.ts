@@ -38,6 +38,8 @@ async function main(): Promise<void> {
     return
   }
 
+  document.getElementById('version')!.textContent = `Version ${__APP_VERSION__}`
+
   const progress = loadProgress()
   const sfx = new Sfx()
   sfx.setMuted(progress.muted)

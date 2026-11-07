@@ -533,6 +533,12 @@ kbd {
 .howto b {
   color: var(--ink);
 }
+.version {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .toast.show {
