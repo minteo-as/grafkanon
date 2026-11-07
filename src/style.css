@@ -453,7 +453,7 @@ kbd {
 
 /* ---------- menu ---------- */
 .menu {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 5;
   overflow-y: auto;
@@ -583,9 +583,15 @@ kbd {
 .howto b {
   color: var(--ink);
 }
+/* Versionen står altid synligt nederst på forsiden, også når banelisten er lang */
 .version {
+  position: sticky;
+  bottom: 0;
+  justify-self: center;
   margin: 8px 0 0;
-  text-align: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(8, 14, 24, 0.85);
   font-size: 12px;
   color: var(--muted);
 }
