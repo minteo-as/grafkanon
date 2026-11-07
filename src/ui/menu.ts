@@ -1,9 +1,11 @@
+import { daysUntilNext, type Challenge } from '../game/challenge'
 import { LEVELS, WORLDS } from '../game/levels'
 import { bossRequirement, isUnlocked, worldStars, type Progress } from '../game/progress'
 import { fmtScore } from './hud'
 
 export interface MenuCallbacks {
   onPlay(levelIndex: number): void
+  onChallenge(): void
   onContinue(): void
   onToggleSound(): void
 }
@@ -27,7 +29,7 @@ export class Menu {
     return !this.root.hidden
   }
 
-  show(progress: Progress, canContinue: boolean, muted: boolean): void {
+  show(progress: Progress, challenge: Challenge, canContinue: boolean, muted: boolean): void {
     this.continueButton.hidden = !canContinue
     this.setMuted(muted)
     const levelItems = LEVELS.map((level, i) => {
@@ -58,6 +60,7 @@ export class Menu {
       return li
     })
     this.list.replaceChildren(
+      this.challengeSection(progress, challenge),
       ...WORLDS.map((world) => {
         const section = document.createElement('section')
         const title = document.createElement('h2')
@@ -80,8 +83,40 @@ export class Menu {
     this.root.hidden = false
     const focusTarget = canContinue
       ? this.continueButton
-      : this.list.querySelector<HTMLButtonElement>('button:not(:disabled)')
+      : this.list.querySelector<HTMLButtonElement>('.levels button:not(:disabled)')
     focusTarget?.focus({ preventScroll: true })
+  }
+
+  /** Kortet med ugens udfordring står øverst og er altid åbent. */
+  private challengeSection(progress: Progress, challenge: Challenge): HTMLElement {
+    const section = document.createElement('section')
+    const title = document.createElement('h2')
+    title.className = 'world-title'
+    title.textContent = 'Ugens udfordring'
+    const days = daysUntilNext()
+    const next = document.createElement('span')
+    next.className = 'world-stars'
+    next.textContent = days === 1 ? 'Ny i morgen' : `Ny om ${days} dage`
+    title.append(next)
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'level challenge'
+    button.innerHTML = `
+      <span class="level-num"></span>
+      <span class="level-text"><b></b><span>Alle får de samme bølger hele ugen. Sammenlign jeres point i klassen.</span></span>
+      <span class="level-meta"></span>`
+    button.querySelector('.level-num')!.textContent = String(challenge.week.week)
+    button.querySelector('b')!.textContent = challenge.level.topic
+    const saved = progress.levels[challenge.level.id]
+    const meta = button.querySelector('.level-meta')!
+    if (saved) {
+      meta.innerHTML = `<span class="stars" aria-label="${saved.stars} af 3 stjerner"></span><small></small>`
+      meta.querySelector('.stars')!.textContent = starString(saved.stars)
+      meta.querySelector('small')!.textContent = `${fmtScore(saved.best)} point`
+    } else meta.textContent = 'Ny'
+    button.addEventListener('click', () => this.cb.onChallenge())
+    section.append(title, button)
+    return section
   }
 
   setMuted(muted: boolean): void {

@@ -1,7 +1,8 @@
 import './style.css'
 import { Sfx } from './audio/sfx'
 import { Game, type Shot } from './game/game'
-import { LEVELS } from './game/levels'
+import { weeklyChallenge } from './game/challenge'
+import { LEVELS, type Level } from './game/levels'
 import { loadProgress, recordLevel, saveProgress } from './game/progress'
 import { hitIncrement } from './game/scoring'
 import { ARENA_HALF, SIDE_TOP } from './game/waves'
@@ -63,7 +64,8 @@ async function main(): Promise<void> {
   const enemies = new EnemyLayer(world.scene, effects)
   const hud = new Hud()
 
-  let levelIndex = 0
+  /** Banen, der spilles. index er null for ugens udfordring, som ikke er en del af kampagnen. */
+  let current: { level: Level; index: number | null; seed?: number } = { level: LEVELS[0], index: 0 }
   let inLevel = false // en bane er i gang og kan fortsættes fra menuen
   let shot: Shot | null = null
   let killed = 0
@@ -127,21 +129,31 @@ async function main(): Promise<void> {
     sfx.click()
   }
 
-  const startLevel = (index: number) => {
+  const play = (next: typeof current) => {
     sfx.unlock()
     sfx.click()
-    levelIndex = index
+    current = next
     inLevel = true
-    game.startLevel(LEVELS[index])
+    game.startLevel(next.level, next.seed)
     applyWeapon()
     menu.hide()
     controls.enabled = true
     loadWave()
   }
 
+  const startLevel = (index: number) => play({ level: LEVELS[index], index })
+
+  /** Ugen findes først, når man starter, så en ny uge også slår igennem uden genindlæsning. */
+  const startChallenge = () => {
+    const { level, seed } = weeklyChallenge()
+    play({ level, index: null, seed })
+  }
+
+  const replay = () => (current.index === null ? play(current) : startLevel(current.index))
+
   const openMenu = () => {
     controls.enabled = false
-    menu.show(progress, inLevel, progress.muted)
+    menu.show(progress, weeklyChallenge(), inLevel, progress.muted)
   }
 
   const closeMenu = () => {
@@ -150,7 +162,12 @@ async function main(): Promise<void> {
     controls.enabled = true
   }
 
-  const menu = new Menu({ onPlay: startLevel, onContinue: closeMenu, onToggleSound: toggleSound })
+  const menu = new Menu({
+    onPlay: startLevel,
+    onChallenge: startChallenge,
+    onContinue: closeMenu,
+    onToggleSound: toggleSound,
+  })
 
   const controls = new Controls({
     onAim: (next) => {
@@ -209,19 +226,22 @@ async function main(): Promise<void> {
 
   const showLevelComplete = () => {
     const result = game.levelResult!
-    const level = LEVELS[levelIndex]
+    const { level, index } = current
     const newBest = recordLevel(progress, level.id, result)
     saveProgress(progress)
     inLevel = false
-    const hasNext = levelIndex + 1 < LEVELS.length
+    const next = index !== null && index + 1 < LEVELS.length ? index + 1 : null
+    const challenge = index === null
     hud.showOverlay({
-      title: `${level.name} klaret`,
-      text: `${fmtScore(result.score)} point${newBest ? ' · ny rekord' : ''}. ${STAR_TIPS[result.stars]}`,
+      title: challenge ? `Ugens udfordring klaret` : `${level.name} klaret`,
+      text: challenge
+        ? `${fmtScore(result.score)} point${newBest ? ' · ny rekord' : ''}. Alle har fået de samme bølger, så sammenlign med klassen.`
+        : `${fmtScore(result.score)} point${newBest ? ' · ny rekord' : ''}. ${STAR_TIPS[result.stars]}`,
       stars: result.stars,
       onStar: (i) => sfx.star(i),
       buttons: [
-        ...(hasNext ? [{ label: 'Næste bane', primary: true, onClick: () => startLevel(levelIndex + 1) }] : []),
-        { label: 'Spil banen igen', primary: !hasNext, onClick: () => startLevel(levelIndex) },
+        ...(next !== null ? [{ label: 'Næste bane', primary: true, onClick: () => startLevel(next) }] : []),
+        { label: challenge ? 'Prøv igen' : 'Spil banen igen', primary: next === null, onClick: replay },
         {
           label: 'Menu',
           onClick: () => {

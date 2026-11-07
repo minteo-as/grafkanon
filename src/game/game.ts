@@ -175,7 +175,9 @@ export class Game {
     return { stars: starsFor(this.results), score: this.score }
   }
 
-  startLevel(level: Level): void {
+  /** Starter banen. Med et seed bliver bølgerne de samme hver gang (bruges til ugens udfordring). */
+  startLevel(level: Level, seed?: number): void {
+    if (seed !== undefined) this.rng = mulberry32(seed)
     this.level = level
     const kind = this.weapon === 'grenade' ? 'parabola' : 'line'
     if (this.aim.kind !== kind) this.aim = defaultAim(this.weapon)

@@ -44,6 +44,10 @@ Hver bane er en liste af bølger, og hver bølge beskriver grupper af mål (anta
 
 Stjerner: ★ for at klare banen, ★★ uden ekstra skud, ★★★ også uden sigtelinje og koordinater.
 
+### Ugens udfordring
+
+Øverst i menuen ligger ugens udfordring (`src/game/challenge.ts`). Den skifter hver mandag og bruger ulige uger Linjebyen og lige uger Parabelbjergene. Der vælges fire af verdenens almindelige baner og én bølge fra hver. Bølgerne laves med et seed ud fra ISO-ugenummeret, så alle elever får præcis de samme bølger hele ugen, også hvis de prøver en bølge igen. Den er altid åben, og der er ingen server: hver elev ser sin egen bedste score, og klassen sammenligner selv.
+
 ## CI
 
 `.github/workflows/ci.yml` kører ved hvert push til `main` og ved hver pull request. Den:

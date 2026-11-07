@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Aim } from '../math/path'
+import { isoWeek, weeklyChallenge } from './challenge'
 import { BARRIER_TIME, Game, HIT_RADIUS, type Enemy } from './game'
 import { LEVELS, WORLDS, weaponOf, type Level } from './levels'
 import { bossRequirement, isUnlocked, recordLevel, worldStars, type Progress } from './progress'
@@ -8,8 +9,8 @@ import { canHit, generateWave, isSolvable } from './waves'
 
 /** Starter en bane og regner bølgernes løsninger ud med samme seed som spillet. */
 function startKnown(level: Level, seed: number) {
-  const game = new Game(seed)
-  game.startLevel(level)
+  const game = new Game()
+  game.startLevel(level, seed)
   const rng = mulberry32(seed)
   const solutions = level.waves.map((spec) => generateWave(spec, rng, weaponOf(level)).solution)
   return { game, solutions }
@@ -198,5 +199,55 @@ describe('bosser og stjerner', () => {
     expect(isUnlocked(p, bossIndex + 1)).toBe(false)
     recordLevel(p, LEVELS[bossIndex].id, { stars: 1, score: 100 })
     expect(isUnlocked(p, bossIndex + 1)).toBe(true)
+  })
+})
+
+describe('ugens udfordring', () => {
+  it('regner ugenummeret ud som i den danske kalender', () => {
+    expect(isoWeek(new Date(2026, 0, 1))).toEqual({ year: 2026, week: 1 })
+    expect(isoWeek(new Date(2024, 11, 30))).toEqual({ year: 2025, week: 1 })
+    expect(isoWeek(new Date(2021, 0, 3))).toEqual({ year: 2020, week: 53 })
+    expect(isoWeek(new Date(2026, 10, 7))).toEqual({ year: 2026, week: 45 })
+    // Mandag og søndag i samme uge
+    expect(isoWeek(new Date(2026, 10, 2))).toEqual(isoWeek(new Date(2026, 10, 8)))
+    expect(isoWeek(new Date(2026, 10, 9)).week).toBe(46)
+  })
+
+  it('er ens hele ugen og skifter verden fra uge til uge', () => {
+    const monday = weeklyChallenge(new Date(2026, 10, 2, 8))
+    const sunday = weeklyChallenge(new Date(2026, 10, 8, 22))
+    expect(sunday).toEqual(monday)
+    expect(monday.level.id).toBe('uge-2026-45')
+    const next = weeklyChallenge(new Date(2026, 10, 9))
+    expect(next.seed).not.toBe(monday.seed)
+    expect(next.level.world).not.toBe(monday.level.world)
+  })
+
+  it('giver alle de samme bølger, også når man prøver igen', () => {
+    const { level, seed } = weeklyChallenge(new Date(2026, 10, 7))
+    const where = (g: Game) => g.enemies.map((e) => [e.x, e.y])
+    const a = new Game(1)
+    const b = new Game(2)
+    a.startLevel(level, seed)
+    b.startLevel(level, seed)
+    expect(where(a)).toEqual(where(b))
+    a.retryWave()
+    expect(where(a)).toEqual(where(b))
+    a.startLevel(level, seed)
+    expect(where(a)).toEqual(where(b))
+  })
+
+  it('kan klares hver uge i to år', () => {
+    for (let day = 0; day < 2 * 365; day += 7) {
+      const { level, seed } = weeklyChallenge(new Date(2026, 0, 5 + day))
+      expect(level.waves.length).toBe(4)
+      const { game, solutions } = startKnown(level, seed)
+      solutions.forEach((solution, i) => {
+        autoplayWave(game, solution)
+        expect(game.phase, `${level.id} bølge ${i + 1}`).toBe('cleared')
+        if (i < solutions.length - 1) game.nextWave()
+      })
+      expect(game.levelResult).not.toBeNull()
+    }
   })
 })

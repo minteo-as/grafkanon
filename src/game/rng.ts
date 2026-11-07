@@ -1,4 +1,4 @@
-// Seedet tilfældighed, så samme seed giver samme bølger (bruges senere til "ugens udfordring").
+// Seedet tilfældighed, så samme seed giver samme bølger (fx i ugens udfordring).
 
 export type Rng = () => number
 

@@ -536,6 +536,17 @@ kbd {
   outline: 2px solid var(--aim);
   outline-offset: 2px;
 }
+/* Ugens udfordring skiller sig ud fra kampagnens baner */
+.level.challenge {
+  border-color: rgba(255, 209, 102, 0.45);
+  background: linear-gradient(120deg, rgba(255, 209, 102, 0.1), transparent 60%), var(--panel);
+}
+.level.challenge .level-num {
+  color: var(--aim);
+}
+.level.challenge:hover {
+  border-color: var(--aim);
+}
 .level:disabled {
   opacity: 0.5;
   cursor: default;
