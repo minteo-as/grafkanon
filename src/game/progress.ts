@@ -47,7 +47,27 @@ export function recordLevel(p: Progress, levelId: string, result: LevelResult): 
   return newBest
 }
 
-/** Første bane er altid åben. De næste åbner, når den forrige er klaret. */
+/** Stjerner samlet i en verdens almindelige baner (bossen tæller ikke med). */
+export function worldStars(p: Progress, world: number): { stars: number; max: number } {
+  const levels = LEVELS.filter((l) => l.world === world && !l.boss)
+  return {
+    stars: levels.reduce((sum, l) => sum + (p.levels[l.id]?.stars ?? 0), 0),
+    max: levels.length * 3,
+  }
+}
+
+/** Bossen kræver i gennemsnit halvanden stjerne pr. bane, så man må spille nogle baner igen. */
+export function bossRequirement(world: number): number {
+  return Math.ceil(LEVELS.filter((l) => l.world === world && !l.boss).length * 1.5)
+}
+
+/**
+ * Første bane er altid åben. De næste åbner, når den forrige er klaret.
+ * En bossbane kræver desuden stjerner nok i sin verden.
+ */
 export function isUnlocked(p: Progress, index: number): boolean {
-  return index === 0 || !!p.levels[LEVELS[index - 1]?.id]
+  const level = LEVELS[index]
+  if (!level) return false
+  if (index > 0 && !p.levels[LEVELS[index - 1].id]) return false
+  return !level.boss || worldStars(p, level.world).stars >= bossRequirement(level.world)
 }

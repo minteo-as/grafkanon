@@ -19,6 +19,7 @@
           <span class="chip">Skud <b id="hudAmmo"></b></span>
           <span class="chip">Point <b id="hudScore">0</b></span>
           <span class="chip">Pointgange <b id="hudMult">×1</b> <small id="hudMultNext" hidden></small></span>
+          <span class="chip boss" id="hudBoss" hidden>Boss <b id="hudBossLives"></b></span>
           <span class="chip march" id="hudMarch" hidden>Marchører rykker om <b id="hudMarchTime"></b> s</span>
           <span class="hud-buttons">
             <button class="chip chip-btn" id="hudSound" type="button" aria-pressed="true">Lyd til</button>
@@ -43,10 +44,20 @@
 
       <aside class="panel">
         <div class="brand">Graf<span>kanonen</span></div>
+        <div class="tools" id="tools" role="group" aria-label="Værktøj" hidden>
+          <button class="tool" id="toolLaser" type="button" aria-pressed="true">Laser</button>
+          <button class="tool" id="toolBarrier" type="button" aria-pressed="false">
+            Barriere <span class="count" id="barrierCount">0</span>
+          </button>
+        </div>
         <div>
           <div class="plabel">Din funktion</div>
           <div class="formula" id="formula">y = x</div>
           <div class="warn" id="warn"></div>
+        </div>
+        <div class="axis" id="barrierAxis" role="group" aria-label="Barrierens retning" hidden>
+          <button class="tool" type="button" data-axis="x" aria-pressed="false">Lodret x = k</button>
+          <button class="tool" type="button" data-axis="y" aria-pressed="true">Vandret y = k</button>
         </div>
         <div class="sliders" id="sliders"></div>
         <div>

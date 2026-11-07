@@ -19,6 +19,10 @@ export interface Level {
   topic: string
   /** Parametre, der står fast i hele banen, fx a = −1, mens man lærer toppunktet. */
   locked?: { a?: number }
+  /** Granaten styres med y = ax² + bx + c i stedet for toppunktsformen. */
+  form?: 'vertex' | 'general'
+  /** Bossbanen i en verden. Den åbner først, når man har stjerner nok i verdenen. */
+  boss?: boolean
   waves: WaveSpec[]
 }
 
@@ -31,6 +35,7 @@ const ALL = [...WHOLE, ...HALF, 0]
 const DOWN = { dx: 0, dy: -1 }
 const RIGHT = { dx: 1, dy: 0 }
 const LEFT = { dx: -1, dy: 0 }
+const UP = { dx: 0, dy: 1 }
 
 const ARC_AS = [-0.5, -1, -2]
 
@@ -165,6 +170,96 @@ export const LEVELS: Level[] = [
     ],
   },
   {
+    id: 'linjebyen-barriere',
+    world: 1,
+    name: 'Barrieren',
+    topic: 'Lodrette og vandrette linjer: x = k og y = k',
+    waves: [
+      {
+        groups: [{ count: 3, slopes: [1, 2, -1, -2], march: DOWN }],
+        singles: 1,
+        spareShots: 1,
+        barriers: 2,
+        marchInterval: 2.2,
+        hint: 'Marchørerne går hurtigt nedad. En vandret barriere y = k under dem stopper dem i 8 sekunder.',
+      },
+      {
+        groups: [
+          { count: 3, slopes: WHOLE, march: RIGHT },
+          { count: 3, slopes: WHOLE },
+        ],
+        singles: 0,
+        spareShots: 0,
+        barriers: 2,
+        marchInterval: 2.2,
+        hint: 'Nu går de mod højre. Hvilken barriere stopper dem: x = k eller y = k?',
+      },
+      {
+        groups: [
+          { count: 3, slopes: WHOLE, march: DOWN },
+          { count: 3, slopes: HALF, march: LEFT },
+        ],
+        singles: 0,
+        spareShots: 0,
+        barriers: 2,
+        marchInterval: 2.4,
+        hint: 'To grupper i hver sin retning. Hver gruppe skal have sin egen slags barriere.',
+      },
+      {
+        groups: [
+          { count: 3, slopes: ALL, march: UP },
+          { count: 3, slopes: ALL, march: RIGHT },
+          { count: 2, slopes: WHOLE },
+        ],
+        singles: 0,
+        spareShots: 0,
+        barriers: 2,
+        marchInterval: 2.2,
+        hint: 'Nogle går opad, andre mod højre. Stop dem, og find linjerne i ro og mag.',
+      },
+    ],
+  },
+  {
+    id: 'linjebyen-skjolde',
+    world: 1,
+    name: 'Skjolde og spejle',
+    topic: 'Fortegnet på a og spejling i y-aksen',
+    waves: [
+      {
+        groups: [{ count: 3, slopes: WHOLE, shield: 'neg' }],
+        singles: 1,
+        spareShots: 1,
+        hint: 'Skjoldbærerne med − kan kun rammes af en linje med negativ hældning (a < 0).',
+      },
+      {
+        groups: [
+          { count: 3, slopes: WHOLE, shield: 'pos' },
+          { count: 3, slopes: WHOLE, shield: 'neg' },
+        ],
+        singles: 0,
+        spareShots: 0,
+        hint: '+ betyder a > 0, og − betyder a < 0. En vandret linje (a = 0) kommer ikke igennem nogen af dem.',
+      },
+      {
+        groups: [{ count: 3, slopes: WHOLE }],
+        singles: 0,
+        splitters: 2,
+        spareShots: 0,
+        hint: 'Delere (de blå) bliver til en ny glitch spejlet i y-aksen: (x, y) bliver til (−x, y).',
+      },
+      {
+        groups: [
+          { count: 3, slopes: ALL, shield: 'neg' },
+          { count: 3, slopes: HALF },
+        ],
+        singles: 0,
+        splitters: 1,
+        spareShots: 0,
+        hint: 'Skjolde og en deler. Tænk på fortegnet, og gæt, hvor spejlbilledet dukker op.',
+      },
+    ],
+  },
+  {
     id: 'linjebyen-4',
     world: 1,
     name: 'Blandet',
@@ -210,6 +305,34 @@ export const LEVELS: Level[] = [
         spareShots: 0,
         marchInterval: 2.6,
         hint: 'Sidste bølge. Tre grupper, og én af dem marcherer.',
+      },
+    ],
+  },
+  {
+    id: 'linjebyen-boss',
+    world: 1,
+    name: 'Tvillingen',
+    topic: 'Boss: forskriften ud fra to punkter',
+    boss: true,
+    waves: [
+      {
+        groups: [
+          { count: 3, slopes: ALL, shield: 'pos' },
+          { count: 3, slopes: ALL, march: DOWN },
+        ],
+        singles: 0,
+        splitters: 1,
+        spareShots: 0,
+        barriers: 1,
+        marchInterval: 2.6,
+        hint: 'Ryd vejen til Tvillingen.',
+      },
+      {
+        groups: [{ count: 3, slopes: WHOLE }],
+        singles: 0,
+        spareShots: 1,
+        boss: { kind: 'twins', phases: 3, values: [...WHOLE, ...HALF] },
+        hint: 'Tvillingen har to svage punkter. De skal rammes med samme skud, så find linjen gennem dem begge.',
       },
     ],
   },
@@ -331,6 +454,123 @@ export const LEVELS: Level[] = [
         spareShots: 0,
         walls: 2,
         hint: 'Sidste bølge i Parabelbjergene. To mure, to buer og en drone for sig selv.',
+      },
+    ],
+  },
+  {
+    id: 'parabel-abc',
+    world: 2,
+    name: 'Almindelig form',
+    topic: 'y = ax² + bx + c',
+    form: 'general',
+    waves: [
+      {
+        groups: [{ kind: 'arc', count: 3, as: [-1], yAxis: true }],
+        singles: 0,
+        spareShots: 1,
+        hint: 'Her styrer du y = ax² + bx + c. Buen skærer y-aksen i y = c, så ram dronen på y-aksen først.',
+      },
+      {
+        groups: [{ kind: 'arc', count: 3, as: [-1, -0.5], top: true }],
+        singles: 0,
+        spareShots: 1,
+        hint: 'Toppunktets x-værdi er −b/(2a). Med a = −1 er toppunktet altså i x = b/2.',
+      },
+      {
+        groups: [
+          { kind: 'arc', count: 3, as: ARC_AS, yAxis: true },
+          { kind: 'arc', count: 2, as: ARC_AS, top: true },
+        ],
+        singles: 0,
+        spareShots: 0,
+        walls: 1,
+        hint: 'Brug c til dronen på y-aksen og −b/(2a) til toppunktet.',
+      },
+      {
+        groups: [
+          { kind: 'arc', count: 3, as: ARC_AS },
+          { kind: 'arc', count: 3, as: ARC_AS, yAxis: true },
+        ],
+        singles: 0,
+        spareShots: 0,
+        walls: 1,
+        hint: 'Du kan også skrive forskriften i toppunktsform. Spillet regner den selv om.',
+      },
+    ],
+  },
+  {
+    id: 'parabel-blandet',
+    world: 2,
+    name: 'Blandet',
+    topic: 'Alt fra Parabelbjergene på én gang',
+    waves: [
+      {
+        groups: [
+          { kind: 'arc', count: 3, as: ARC_AS, ground: true },
+          { kind: 'arc', count: 3, as: ARC_AS, top: true },
+        ],
+        singles: 0,
+        spareShots: 0,
+        walls: 2,
+        hint: 'Én bue lander på glitchen, den anden går gennem et toppunkt.',
+      },
+      {
+        groups: [
+          { kind: 'arc', count: 3, as: [-0.25, -0.5] },
+          { kind: 'arc', count: 3, as: [-1, -2] },
+        ],
+        singles: 1,
+        spareShots: 0,
+        walls: 1,
+        hint: 'En bred og en smal bue. Brug symmetrien til at finde toppunkterne.',
+      },
+      {
+        groups: [
+          { kind: 'arc', count: 3, as: ARC_AS, yAxis: true },
+          { kind: 'arc', count: 3, as: ARC_AS, ground: true },
+        ],
+        singles: 0,
+        spareShots: 0,
+        walls: 2,
+        hint: 'Skæring med y-aksen og nulpunkt: to buer, to mure.',
+      },
+      {
+        groups: [
+          { kind: 'arc', count: 3, as: ARC_AS },
+          { kind: 'arc', count: 3, as: ARC_AS },
+          { kind: 'arc', count: 2, as: ARC_AS, top: true },
+        ],
+        singles: 0,
+        spareShots: 0,
+        walls: 2,
+        hint: 'Tre buer og ingen ekstra skud.',
+      },
+    ],
+  },
+  {
+    id: 'parabel-boss',
+    world: 2,
+    name: 'Kurven',
+    topic: 'Boss: find parablen ud fra dens graf',
+    boss: true,
+    waves: [
+      {
+        groups: [
+          { kind: 'arc', count: 3, as: ARC_AS, ground: true },
+          { kind: 'arc', count: 3, as: ARC_AS },
+        ],
+        singles: 1,
+        spareShots: 0,
+        walls: 1,
+        hint: 'Ryd vejen til Kurven.',
+      },
+      {
+        groups: [],
+        singles: 0,
+        spareShots: 1,
+        walls: 1,
+        boss: { kind: 'curve', phases: 3, values: [-0.5, -1, -2] },
+        hint: 'Kurven flyver langs sin egen parabel. Skyd præcis langs dens bane, så rammer du det svage punkt i toppunktet.',
       },
     ],
   },

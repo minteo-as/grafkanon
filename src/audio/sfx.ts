@@ -125,6 +125,17 @@ export class Sfx {
     this.tone({ type: 'triangle', from: f * 4, duration: 0.2, volume: 0.1, delay: 0.03 })
   }
 
+  barrier(): void {
+    this.tone({ type: 'square', from: 220, to: 440, duration: 0.18, volume: 0.08 })
+    this.tone({ type: 'sine', from: 660, to: 660, duration: 0.4, volume: 0.1, delay: 0.08 })
+  }
+
+  /** Bossen mister et liv: et ekstra dybt brag med en faldende tone. */
+  bossHurt(): void {
+    this.boom()
+    this.tone({ type: 'sawtooth', from: 520, to: 90, duration: 0.7, volume: 0.25, distort: true, delay: 0.05 })
+  }
+
   miss(): void {
     this.tone({ type: 'sine', from: 240, to: 90, duration: 0.4, volume: 0.22 })
   }

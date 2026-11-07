@@ -272,6 +272,56 @@ body {
   color: var(--aim);
   min-height: 1.3em;
 }
+.tools,
+.axis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.tool {
+  font-family: var(--f-body);
+  font-weight: 700;
+  font-size: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.tool[aria-pressed='true'] {
+  background: var(--btn);
+  color: var(--ink);
+  border-color: var(--beam);
+}
+.tool:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.tool:focus-visible {
+  outline: 2px solid var(--aim);
+  outline-offset: 2px;
+}
+.tool .count {
+  font-family: var(--f-mono);
+  color: var(--aim);
+}
+.btn.fire.barrier {
+  background: var(--aim);
+}
+.chip.boss {
+  border-color: #ff3d7f;
+}
+.chip.boss b {
+  color: #ff7aa8;
+  letter-spacing: 2px;
+}
+.world-stars {
+  float: right;
+  color: var(--aim);
+  letter-spacing: 0;
+  text-transform: none;
+}
 .sliders {
   display: grid;
   gap: 14px;

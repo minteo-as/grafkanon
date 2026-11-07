@@ -31,7 +31,11 @@ export interface LineGroup {
   count: number
   slopes: readonly number[]
   march?: March
+  /** Skjoldbærere: kan kun rammes af en linje med negativ (neg) eller positiv (pos) hældning. */
+  shield?: Shield
 }
+
+export type Shield = 'neg' | 'pos'
 
 /** Droner på samme parabel (granat). */
 export interface ArcGroup {
@@ -43,6 +47,16 @@ export interface ArcGroup {
   top?: boolean
   /** En glitch står på jorden i det højre nulpunkt (tæller med i count). */
   ground?: boolean
+  /** En drone sidder på y-aksen, hvor buen skærer den (y = c i ax² + bx + c). */
+  yAxis?: boolean
+}
+
+/** Tvillingen: to svage punkter, der skal rammes i samme skud. Kurven: flyver langs en parabel med det svage punkt i toppunktet. */
+export interface BossSpec {
+  kind: 'twins' | 'curve'
+  phases: number
+  /** Hældninger (Tvillingen) eller værdier af a (Kurven). */
+  values: readonly number[]
 }
 
 export type Group = LineGroup | ArcGroup
@@ -56,19 +70,49 @@ export interface WaveSpec {
   marchInterval?: number
   /** Antal mure i sidebilledet. */
   walls?: number
+  /** Antal delere: når de rammes, dukker en ny glitch op spejlet i y-aksen. */
+  splitters?: number
+  /** Antal barrierer (x = k eller y = k), man kan sætte i bølgen. */
+  barriers?: number
+  boss?: BossSpec
+}
+
+export interface BossTag {
+  kind: 'twins' | 'curve'
+  /** Hvilken af bossens faser punktet hører til (0 = første). */
+  phase: number
+  /** Kurvens egen bane. */
+  path?: Aim
 }
 
 export interface Spawn extends Point {
   march?: March
+  shield?: Shield
+  splits?: boolean
+  boss?: BossTag
+  /** Punkter med samme link skal rammes i samme skud (Tvillingens svage punkter). */
+  link?: number
 }
 
 export interface WaveLayout {
   enemies: Spawn[]
+  /** Bossens næste faser. De dukker op, når den forrige fase er besejret. */
+  phases: Spawn[][]
   walls: Wall[]
   ammo: number
-  /** Én måde at klare bølgen med færrest mulige skud (ved bølgens start). */
+  /** Én måde at klare bølgen med færrest mulige skud. */
   solution: Aim[]
 }
+
+/** Skjolde stopper linjer med forkert fortegn på hældningen (og granater). */
+export function canHit(aim: Aim, target: Spawn): boolean {
+  if (!target.shield) return true
+  if (aim.kind !== 'line') return false
+  return target.shield === 'neg' ? aim.a < 0 : aim.a > 0
+}
+
+/** Delerens nye glitch dukker op spejlet i y-aksen. */
+export const mirrorOf = (p: Point): Point => ({ x: -p.x, y: p.y })
 
 const dist = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.y - q.y)
 const isInt = (v: number) => Math.abs(v - Math.round(v)) < 1e-9
@@ -142,6 +186,11 @@ function placeArc(group: ArcGroup, taken: Point[], rng: Rng): { points: Point[];
   const required: Point[] = []
   if (group.top) required.push({ x: h, y: k })
   if (group.ground) required.push({ x: rs[1], y: 0 })
+  if (group.yAxis) {
+    const c = f(0)
+    if (h === 0 || rs[0] >= 0 || rs[1] <= 0 || !isInt(c) || c < 1 || c > DRONE_MAX_Y) return null
+    required.push({ x: 0, y: Math.round(c) })
+  }
   const points = choosePoints(required, candidates, group.count, taken, rng)
   return points ? { points, aim: { kind: 'parabola', a, h, k } } : null
 }
@@ -187,14 +236,22 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
         placed = arc.points
         solution.push(arc.aim)
       } else {
-        const line = { a: pick(group.slopes, rng), b: randInt(-5, 5, rng) }
+        const slopes = group.shield
+          ? group.slopes.filter((a) => (group.shield === 'neg' ? a < 0 : a > 0))
+          : group.slopes
+        const line = { a: pick(slopes, rng), b: randInt(-5, 5, rng) }
         if (solution.some((s) => s.kind === 'line' && s.a === line.a)) continue
         placed = pointsOnLine(line, group.count, enemies, rng, group.march)
         if (placed) solution.push({ kind: 'line', ...line })
       }
     }
     if (!placed) return null
-    enemies.push(...placed.map((p) => (group.kind !== 'arc' && group.march ? { ...p, march: { ...group.march } } : p)))
+    for (const p of placed) {
+      const spawn: Spawn = { ...p }
+      if (group.kind !== 'arc' && group.march) spawn.march = { ...group.march }
+      if (group.kind !== 'arc' && group.shield) spawn.shield = group.shield
+      enemies.push(spawn)
+    }
   }
 
   for (let s = 0; s < spec.singles; s++) {
@@ -212,16 +269,95 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
     solution.push(weapon === 'grenade' ? { kind: 'parabola', a: -1, h: p.x, k: p.y } : { kind: 'line', a: 0, b: p.y })
   }
 
-  const walls = spec.walls ? placeWalls(spec.walls, enemies, solution, rng) : []
+  for (let s = 0; s < (spec.splitters ?? 0); s++) {
+    let p: Point | null = null
+    for (let t = 0; t < 80 && !p; t++) {
+      const c = { x: randInt(2, 7, rng) * (rng() < 0.5 ? -1 : 1), y: randInt(-7, 7, rng) }
+      if ([c, mirrorOf(c)].every((m) => enemies.every((q) => dist(m, q) >= 2.5))) p = c
+    }
+    if (!p) return null
+    enemies.push({ ...p, splits: true })
+    // Én vandret linje rammer deleren, og samme linje rammer bagefter den spejlede glitch
+    solution.push({ kind: 'line', a: 0, b: p.y }, { kind: 'line', a: 0, b: p.y })
+  }
+
+  const phases: Spawn[][] = []
+  if (spec.boss) {
+    for (let phase = 0; phase < spec.boss.phases; phase++) {
+      const placed = placeBossPhase(spec.boss, phase, enemies, rng)
+      if (!placed) return null
+      phases.push(placed.spawns)
+      solution.push(placed.aim)
+    }
+  }
+
+  const all = [...enemies, ...phases.flat()]
+  const walls = spec.walls ? placeWalls(spec.walls, all, solution, rng) : []
   if (!walls) return null
-  return { enemies, walls, ammo: solution.length + spec.spareShots, solution }
+  return {
+    enemies: [...enemies, ...(phases[0] ?? [])],
+    phases: phases.slice(1),
+    walls,
+    ammo: solution.length + spec.spareShots,
+    solution,
+  }
 }
 
-/** Hver glitch ligger på en af løsningens baner, og ingen mur stopper banen før glitchen. */
+/** Én af bossens faser. Faserne kommer efter hinanden, så de må gerne stå samme sted. */
+function placeBossPhase(
+  boss: BossSpec,
+  phase: number,
+  minions: Point[],
+  rng: Rng,
+): { spawns: Spawn[]; aim: Aim } | null {
+  for (let t = 0; t < 80; t++) {
+    if (boss.kind === 'twins') {
+      const line = { a: pick(boss.values, rng), b: randInt(-5, 5, rng) }
+      const candidates: Point[] = []
+      for (let x = -SPAWN_LIMIT; x <= SPAWN_LIMIT; x++) {
+        const y = line.a * x + line.b
+        if (isInt(y) && Math.abs(Math.round(y)) <= SPAWN_LIMIT) candidates.push({ x, y: Math.round(y) })
+      }
+      const free = shuffle(
+        candidates.filter((p) => minions.every((q) => dist(p, q) >= 2.5)),
+        rng,
+      )
+      // De to svage punkter står mindst 4 fra hinanden, så linjen ikke er til at gætte
+      const first = free[0]
+      const second = first && free.find((p) => Math.abs(p.x - first.x) >= 4)
+      if (!first || !second) continue
+      const tag: BossTag = { kind: 'twins', phase }
+      return {
+        spawns: [first, second].map((p) => ({ ...p, boss: tag, link: phase + 1 })),
+        aim: { kind: 'line', ...line },
+      }
+    }
+    const arc = placeArc({ kind: 'arc', count: 3, as: boss.values, top: true }, minions, rng)
+    if (!arc || arc.aim.kind !== 'parabola') continue
+    const top = { x: arc.aim.h, y: arc.aim.k }
+    return {
+      spawns: arc.points.map((p) =>
+        p.x === top.x && p.y === top.y ? { ...p, boss: { kind: 'curve', phase, path: arc.aim } } : p,
+      ),
+      aim: arc.aim,
+    }
+  }
+  return null
+}
+
+/** Alle mål i bølgen: dem fra start, bossens senere faser og delernes spejlede glitches. */
+export function allTargets(layout: WaveLayout): Spawn[] {
+  const now = [...layout.enemies, ...layout.phases.flat()]
+  return [...now, ...now.filter((e) => e.splits).map(mirrorOf)]
+}
+
+/** Hver glitch ligger på en af løsningens baner, kan rammes af den, og ingen mur stopper banen før glitchen. */
 export function isSolvable(layout: WaveLayout): boolean {
-  const paths = layout.solution.map((s) => computePath(s, ARENA_HALF, layout.walls))
-  if (!paths.every((p) => p.ok)) return false
-  return layout.enemies.every((e) => paths.some((p) => p.ok && p.path.distanceTo(e.x, e.y) < 1e-6))
+  const paths = layout.solution.map((s) => ({ aim: s, result: computePath(s, ARENA_HALF, layout.walls) }))
+  if (!paths.every((p) => p.result.ok)) return false
+  return allTargets(layout).every((e) =>
+    paths.some((p) => p.result.ok && canHit(p.aim, e) && p.result.path.distanceTo(e.x, e.y) < 1e-6),
+  )
 }
 
 export function generateWave(spec: WaveSpec, rng: Rng, weapon: Weapon = 'laser'): WaveLayout {
@@ -237,6 +373,7 @@ export function generateWave(spec: WaveSpec, rng: Rng, weapon: Weapon = 'laser')
           { x: -1, y: 3 },
           { x: 1, y: 3 },
         ],
+        phases: [],
         walls: [],
         ammo: 2,
         solution: [{ kind: 'parabola', a: -1, h: 0, k: 4 }],
@@ -247,6 +384,7 @@ export function generateWave(spec: WaveSpec, rng: Rng, weapon: Weapon = 'laser')
           { x: 0, y: 1 },
           { x: 2, y: 5 },
         ],
+        phases: [],
         walls: [],
         ammo: 2,
         solution: [{ kind: 'line', a: 2, b: 1 }],

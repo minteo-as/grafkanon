@@ -22,6 +22,14 @@ export const COLORS = {
   wallTop: 0x8796ae,
   ground: 0x1a2a40,
   mountain: 0x16243a,
+  splitter: 0x38d6c4,
+  splitterGlow: 0x0a3a36,
+  shieldNeg: 0xff7aa8,
+  shieldPos: 0x7cf29b,
+  boss: 0xff3d7f,
+  bossGlow: 0x5a0a28,
+  bossBody: 0x8a2d5a,
+  barrier: 0xffd166,
 }
 
 /** Matematikkens (x, y) ligger på gulvet: x mod højre, y væk fra kameraet. */

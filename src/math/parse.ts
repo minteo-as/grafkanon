@@ -115,3 +115,16 @@ export function parseParabola(input: string): ParabolaParseResult {
   const h = -b / (2 * a)
   return { ok: true, a, h: h === 0 ? 0 : h, k: c - (b * b) / (4 * a) }
 }
+
+export type BarrierParseResult =
+  { ok: true; axis: 'x' | 'y'; k: number } | { ok: false; reason: 'empty' | 'unreadable' }
+
+/** Barrierer er lodrette (x = 3) eller vandrette (y = −2) linjer. */
+export function parseBarrier(input: string): BarrierParseResult {
+  const s = normalize(input)
+  if (!s) return { ok: false, reason: 'empty' }
+  const m = s.match(new RegExp(`^(x|y)=([+-]?${NUM})$`))
+  if (!m) return { ok: false, reason: 'unreadable' }
+  const k = Number(m[2])
+  return { ok: true, axis: m[1] as 'x' | 'y', k: k === 0 ? 0 : k }
+}

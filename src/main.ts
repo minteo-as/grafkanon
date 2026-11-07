@@ -7,6 +7,7 @@ import { hitIncrement } from './game/scoring'
 import { ARENA_HALF, SIDE_TOP } from './game/waves'
 import { buildFloorArena, buildSideArena } from './render/arena'
 import { AimLine, Beam } from './render/beam'
+import { BarrierLayer } from './render/barriers'
 import { Effects } from './render/effects'
 import { EnemyLayer } from './render/enemies'
 import { Grenade } from './render/grenade'
@@ -15,6 +16,7 @@ import { WallLayer } from './render/walls'
 import { COLORS, FLOOR, SIDE, World } from './render/world'
 import { Controls } from './ui/controls'
 import { fmtScore, Hud } from './ui/hud'
+import { fmtNum } from './math/format'
 import { Menu } from './ui/menu'
 
 const STAR_TIPS = [
@@ -56,6 +58,7 @@ async function main(): Promise<void> {
   const beam = new Beam(world.scene)
   const grenade = new Grenade(world.scene)
   const walls = new WallLayer(world.scene)
+  const barriers = new BarrierLayer(world.scene, ARENA_HALF)
   const effects = new Effects(world.scene)
   const enemies = new EnemyLayer(world.scene, effects)
   const hud = new Hud()
@@ -74,6 +77,7 @@ async function main(): Promise<void> {
     const result = game.path
     const path = result.ok ? result.path : null
     controls.showAim(game.aim, result.ok ? null : result.reason)
+    refreshBarriers()
     aim.set(path, game.help.aimLine)
     turret.aimAlong(path)
   }
@@ -87,7 +91,7 @@ async function main(): Promise<void> {
     turret.setPlane(plane)
     aim.setPlane(plane)
     enemies.setPlane(plane)
-    controls.setWeapon(game.weapon, game.level.locked ?? {})
+    controls.setWeapon(game.weapon, { locked: game.level.locked, form: game.level.form })
     showAim()
   }
 
@@ -99,6 +103,9 @@ async function main(): Promise<void> {
     hud.hint(game.hint)
     refresh()
   }
+
+  /** Barrierer findes kun i bølger, der har nogen; fanen viser, hvor mange der er tilbage. */
+  const refreshBarriers = () => controls.setBarrierCharges(game.barrierCharges, (game.spec.barriers ?? 0) > 0)
 
   const retryButton = {
     label: 'Prøv bølgen igen',
@@ -159,6 +166,15 @@ async function main(): Promise<void> {
     },
     onFire: () => {
       if (game.phase !== 'aiming' || hud.overlayVisible) return
+      if (controls.tool === 'barrier') {
+        const { axis, k } = controls.barrierAim
+        if (game.placeBarrier(axis, k)) {
+          sfx.barrier()
+          hud.toast(`Barriere ${axis} = ${fmtNum(k)}`)
+        }
+        refreshBarriers()
+        return
+      }
       if (!game.path.ok) {
         hud.toast(game.weapon === 'laser' ? 'Linjen rammer ikke banen' : 'Den bue kan ikke skydes')
         return
@@ -178,6 +194,7 @@ async function main(): Promise<void> {
     },
     onMenu: openMenu,
     onToggleSound: toggleSound,
+    onBarrierPreview: (b) => barriers.preview(b),
   })
   controls.setMuted(progress.muted)
 
@@ -219,10 +236,26 @@ async function main(): Promise<void> {
   const finishShot = () => {
     const out = game.completeShot()
     shot = null
-    if (out.hits === 0) {
+    if (out.spawned.length) {
+      enemies.add(out.spawned)
+      for (const e of out.spawned) {
+        // Delerens spejlbillede: vis spejlingen i y-aksen med en streg fra den gamle plads
+        if (!e.boss) effects.mirrorLink(FLOOR.toWorld(-e.x, e.y, 0.6), FLOOR.toWorld(e.x, e.y, 0.6), COLORS.splitter)
+      }
+    }
+    if (out.boss === 'hurt') {
+      hud.toast('Bossen er ramt! Den dukker op igen')
+      sfx.bossHurt()
+      world.shake(0.8)
+    } else if (out.boss === 'defeated') {
+      hud.toast('Bossen er besejret!')
+      sfx.bossHurt()
+      world.shake(1)
+    } else if (out.hits === 0) {
       hud.toast('Forbi!')
       sfx.miss()
-    } else if (out.hits > 1) hud.toast(`${out.hits} på én linje!`)
+    } else if (out.hits > 1) hud.toast(`${out.hits} på én ${game.weapon === 'laser' ? 'linje' : 'bue'}!`)
+    else if (out.spawned.length) hud.toast('Deleren delte sig!')
     refresh()
 
     if (out.phase === 'cleared') {
@@ -291,6 +324,7 @@ async function main(): Promise<void> {
         }
         hud.updateMarch(game)
       }
+      barriers.update(game.barriers)
       turret.update(dt)
       enemies.update(dt, game.enemies)
       effects.update(dt)

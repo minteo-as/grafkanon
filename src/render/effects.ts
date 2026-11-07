@@ -87,6 +87,24 @@ export class Effects {
     }
   }
 
+  /** En stiplet streg fra deleren til dens spejlbillede, så man kan se spejlingen i y-aksen. */
+  mirrorLink(from: THREE.Vector3, to: THREE.Vector3, color: number): void {
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([from, to]),
+      new THREE.LineDashedMaterial({ color, dashSize: 0.3, gapSize: 0.2, transparent: true }),
+    )
+    line.computeLineDistances()
+    this.add(
+      line,
+      1.2,
+      (_e, _dt, t) => ((line.material as THREE.LineDashedMaterial).opacity = 1 - t),
+      () => {
+        line.geometry.dispose()
+        ;(line.material as THREE.Material).dispose()
+      },
+    )
+  }
+
   /** Tekst, der stiger op og forsvinder, fx "+300". */
   floatingText(at: THREE.Vector3, text: string, color: string): void {
     const sprite = textSprite(text, { color, height: 0.75 })

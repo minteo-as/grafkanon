@@ -28,6 +28,8 @@ export class Hud {
   private mult = $('hudMult')
   private multNext = $('hudMultNext')
   private marchChip = $('hudMarch')
+  private bossChip = $('hudBoss')
+  private bossLives = $('hudBossLives')
   private marchTime = $('hudMarchTime')
   private hintEl = $('hint')
   private toastEl = $('toast')
@@ -55,6 +57,10 @@ export class Hud {
     const next = game.nextMultiplier
     this.multNext.hidden = next === game.multiplier
     this.multNext.textContent = `×${fmtNum(next)} fra næste bølge`
+    const lives = game.bossLives
+    this.bossChip.hidden = !lives
+    this.bossLives.textContent = '♥'.repeat(lives ?? 0)
+    this.bossChip.setAttribute('aria-label', `Bossen har ${lives ?? 0} liv tilbage`)
     this.updateMarch(game)
   }
 

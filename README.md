@@ -35,8 +35,10 @@ npm run dev
 
 Banerne er defineret i `src/game/levels.ts` og hører til en verden med sit eget våben:
 
-- **Verden 1 · Linjebyen** (laser, `y = ax + b`): glitches på et gulv, set ovenfra.
-- **Verden 2 · Parabelbjergene** (granatkaster, `y = a(x − h)² + k`): droner i et lodret sidebillede. Granaten flyver fra venstre nulpunkt til højre og stopper ved mure, den ikke kommer over.
+- **Verden 1 · Linjebyen** (laser, `y = ax + b`): glitches på et gulv, set ovenfra. 6 baner og bossen **Tvillingen**, hvis to svage punkter skal rammes med samme skud. Undervejs kommer marchører, **barrierer** (`x = k` eller `y = k`, der stopper marchører i 8 sekunder), **skjoldbærere** (kan kun rammes, når a har det rigtige fortegn) og **delere** (dukker op igen spejlet i y-aksen).
+- **Verden 2 · Parabelbjergene** (granatkaster, `y = a(x − h)² + k`): droner i et lodret sidebillede. Granaten flyver fra venstre nulpunkt til højre og stopper ved mure, den ikke kommer over. 5 baner, heraf én i almindelig form `y = ax² + bx + c`, og bossen **Kurven**, der besejres ved at skyde langs dens egen parabel.
+
+En boss åbner først, når verdenens andre baner er klaret med i gennemsnit 1,5 stjerne.
 
 Hver bane er en liste af bølger, og hver bølge beskriver grupper af mål (antal, mulige hældninger eller værdier af a, om de marcherer, om en drone sidder i toppunktet eller en glitch står i nulpunktet), enkelte mål, mure, ekstra skud og et tip. Bølgerne laves tilfældigt ud fra beskrivelsen, så de er forskellige hver gang, men generatoren tjekker altid, at bølgen kan klares med de skud, man får.
 

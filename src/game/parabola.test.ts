@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { fmtVertex } from '../math/format'
-import { parseParabola } from '../math/parse'
+import { fmtGeneral, fmtVertex } from '../math/format'
+import { parseBarrier, parseParabola } from '../math/parse'
 import { computePath, roots, type Aim } from '../math/path'
 import { Game } from './game'
 import { LEVELS, weaponOf } from './levels'
@@ -132,5 +132,20 @@ describe('parabel-bølger', () => {
     const game = new Game(1)
     game.startLevel(arcLevels[0])
     expect(game.aim).toMatchObject({ kind: 'parabola', a: -1 })
+  })
+})
+
+describe('almindelig form og barrierer', () => {
+  it('skriver y = ax² + bx + c pænt', () => {
+    expect(fmtGeneral(-1, 4, 5)).toBe('y = −x² + 4x + 5')
+    expect(fmtGeneral(-0.5, -2, 0)).toBe('y = −0,5x² − 2x')
+    expect(fmtGeneral(-2, 0, -3)).toBe('y = −2x² − 3')
+  })
+
+  it('læser barrierer', () => {
+    expect(parseBarrier('x = 3')).toEqual({ ok: true, axis: 'x', k: 3 })
+    expect(parseBarrier('y = −2')).toEqual({ ok: true, axis: 'y', k: -2 })
+    expect(parseBarrier('Y=0')).toEqual({ ok: true, axis: 'y', k: 0 })
+    expect(parseBarrier('y = 2x')).toEqual({ ok: false, reason: 'unreadable' })
   })
 })

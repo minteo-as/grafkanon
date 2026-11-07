@@ -29,3 +29,23 @@ export function fmtVertex(a: number, h: number, k: number): string {
   else if (k < 0) s += ' − ' + fmtNum(-k)
   return s
 }
+
+/** Almindelig form: y = −x² + 4x + 5 */
+export function fmtGeneral(a: number, b: number, c: number): string {
+  const coef = (v: number, first: boolean) => {
+    const sign = v < 0 ? (first ? '−' : ' − ') : first ? '' : ' + '
+    return { sign, abs: Math.abs(v) }
+  }
+  let s = 'y = '
+  const ta = coef(a, true)
+  s += ta.sign + (ta.abs === 1 ? '' : fmtNum(ta.abs)) + 'x²'
+  if (b !== 0) {
+    const tb = coef(b, false)
+    s += tb.sign + (tb.abs === 1 ? '' : fmtNum(tb.abs)) + 'x'
+  }
+  if (c !== 0) {
+    const tc = coef(c, false)
+    s += tc.sign + fmtNum(tc.abs)
+  }
+  return s
+}

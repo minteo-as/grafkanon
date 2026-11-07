@@ -6,10 +6,11 @@ import { mulberry32, type Rng } from './rng'
 import { BONUS_PER_SPARE_SHOT, helpMultiplier, shotPoints, starsFor, type Help, type WaveResult } from './scoring'
 import {
   ARENA_HALF,
+  canHit,
   generateWave,
   isOutside,
-  type March,
-  type Point,
+  mirrorOf,
+  type Spawn,
   type WaveLayout,
   type WaveSpec,
   type Weapon,
@@ -17,13 +18,22 @@ import {
 
 export const HIT_RADIUS = 0.3
 const DEFAULT_MARCH_INTERVAL = 3
+/** Så længe en barriere holder marchørerne tilbage. */
+export const BARRIER_TIME = 8
+export const BOSS_PHASE_BONUS = 500
 
 export type Phase = 'aiming' | 'firing' | 'cleared' | 'outOfAmmo' | 'escaped'
 
-export interface Enemy extends Point {
+export interface Enemy extends Spawn {
   id: number
   alive: boolean
-  march?: March
+}
+
+/** En lodret (x = k) eller vandret (y = k) barriere, som marchører ikke kan gå over. */
+export interface Barrier {
+  axis: 'x' | 'y'
+  k: number
+  timeLeft: number
 }
 
 export interface Shot {
@@ -39,6 +49,10 @@ export interface ShotOutcome {
   points: number
   bonus: number
   phase: Phase
+  /** Nye glitches: delernes spejlbilleder og bossens næste fase. */
+  spawned: Enemy[]
+  /** 'hurt': bossen mistede et liv; 'defeated': sidste liv. */
+  boss: 'hurt' | 'defeated' | null
 }
 
 export interface LevelResult {
@@ -58,6 +72,8 @@ export class Game {
   phase: Phase = 'aiming'
   enemies: Enemy[] = []
   walls: Wall[] = []
+  barriers: Barrier[] = []
+  barrierCharges = 0
   aim: Aim = defaultAim('laser')
   help: Help = { aimLine: true, coordinates: true }
 
@@ -69,6 +85,7 @@ export class Game {
   private shot: Shot | null = null
   private results: WaveResult[] = []
   private hopTimer = 0
+  private pendingPhases: Spawn[][] = []
   private nextId = 1
   private rng: Rng
 
@@ -131,6 +148,21 @@ export class Game {
     return this.enemies.some((e) => e.alive && e.march)
   }
 
+  /** Bossens resterende liv (én pr. fase), eller null hvis bølgen ikke har en boss. */
+  get bossLives(): number | null {
+    if (!this.spec.boss) return null
+    const current = this.enemies.some((e) => e.alive && e.boss) ? 1 : 0
+    return current + this.pendingPhases.length
+  }
+
+  /** Sætter en barriere. Den koster ikke et skud, men der er kun få af dem. */
+  placeBarrier(axis: Barrier['axis'], k: number): boolean {
+    if (this.phase !== 'aiming' || this.barrierCharges <= 0) return false
+    this.barrierCharges--
+    this.barriers.push({ axis, k, timeLeft: BARRIER_TIME })
+    return true
+  }
+
   /** Sekunder til marchørernes næste skridt, eller null hvis ingen marcherer. */
   get timeToHop(): number | null {
     const active = this.phase === 'aiming' || this.phase === 'firing'
@@ -180,15 +212,20 @@ export class Game {
    * Giver 'hop', når de har taget et skridt, og 'escaped', hvis en af dem er gået ud af banen.
    */
   update(dt: number): 'hop' | 'escaped' | null {
-    if (this.phase !== 'aiming' || !this.hasMarchers) return null
+    if (this.phase !== 'aiming') return null
+    for (const b of this.barriers) b.timeLeft -= dt
+    this.barriers = this.barriers.filter((b) => b.timeLeft > 0)
+    if (!this.hasMarchers) return null
     this.hopTimer -= dt
     if (this.hopTimer > 0) return null
     this.hopTimer += this.spec.marchInterval ?? DEFAULT_MARCH_INTERVAL
     let escaped = false
     for (const e of this.enemies) {
       if (!e.alive || !e.march) continue
-      e.x += e.march.dx
-      e.y += e.march.dy
+      const next = { x: e.x + e.march.dx, y: e.y + e.march.dy }
+      if (this.barriers.some((b) => blocks(b, e, next))) continue
+      e.x = next.x
+      e.y = next.y
       if (isOutside(e)) escaped = true
     }
     if (escaped) {
@@ -204,7 +241,13 @@ export class Game {
     if (!result.ok) return null
     const path = result.path
     this.ammo--
-    const hits = this.enemies.filter((e) => e.alive && path.distanceTo(e.x, e.y) < HIT_RADIUS).sort((p, q) => p.x - q.x)
+    const onPath = this.enemies.filter((e) => e.alive && canHit(this.aim, e) && path.distanceTo(e.x, e.y) < HIT_RADIUS)
+    // Tvillingens svage punkter tæller kun, hvis begge rammes i samme skud
+    const hits = onPath
+      .filter(
+        (e) => e.link === undefined || this.enemies.every((o) => !o.alive || o.link !== e.link || onPath.includes(o)),
+      )
+      .sort((p, q) => p.x - q.x)
     hits.forEach((e) => (e.alive = false))
     this.shot = { aim: { ...this.aim }, path, hits, multiplier: this.multiplier }
     this.phase = 'firing'
@@ -215,7 +258,19 @@ export class Game {
   completeShot(): ShotOutcome {
     if (this.phase !== 'firing' || !this.shot) throw new Error('Intet skud i gang')
     const hits = this.shot.hits.length
-    const points = shotPoints(hits, this.shot.multiplier)
+    let points = shotPoints(hits, this.shot.multiplier)
+    const spawned: Enemy[] = []
+    for (const e of this.shot.hits) if (e.splits) spawned.push(this.spawn(mirrorOf(e)))
+
+    let boss: ShotOutcome['boss'] = null
+    if (this.shot.hits.some((e) => e.boss) && !this.enemies.some((e) => e.alive && e.boss)) {
+      points += BOSS_PHASE_BONUS
+      const next = this.pendingPhases.shift()
+      if (next) {
+        spawned.push(...next.map((p) => this.spawn(p)))
+        boss = 'hurt'
+      } else boss = 'defeated'
+    }
     this.score += points
     let bonus = 0
     if (this.aliveCount === 0) {
@@ -231,7 +286,14 @@ export class Game {
       this.phase = this.ammo === 0 ? 'outOfAmmo' : 'aiming'
     }
     this.shot = null
-    return { hits, points, bonus, phase: this.phase }
+    return { hits, points, bonus, phase: this.phase, spawned, boss }
+  }
+
+  private spawn(p: Spawn): Enemy {
+    const e: Enemy = { ...p, id: this.nextId++, alive: true }
+    if (p.march) e.march = { ...p.march }
+    this.enemies.push(e)
+    return e
   }
 
   private startWave(index: number): void {
@@ -243,18 +305,22 @@ export class Game {
 
   private loadLayout(): void {
     if (!this.layout) return
-    this.enemies = this.layout.enemies.map((p) => ({
-      id: this.nextId++,
-      x: p.x,
-      y: p.y,
-      alive: true,
-      ...(p.march ? { march: { ...p.march } } : {}),
-    }))
+    this.enemies = []
+    for (const p of this.layout.enemies) this.spawn(p)
+    this.pendingPhases = this.layout.phases.map((phase) => phase.map((p) => ({ ...p })))
     this.walls = this.layout.walls.map((w) => ({ ...w }))
+    this.barriers = []
+    this.barrierCharges = this.spec.barriers ?? 0
     this.ammo = this.layout.ammo
     this.phase = 'aiming'
     this.helpUsed = { ...this.help }
     this.hopTimer = this.spec.marchInterval ?? DEFAULT_MARCH_INTERVAL
     this.shot = null
   }
+}
+
+/** Går marchøren over (eller ind på) barrierens linje i dette skridt? */
+function blocks(b: Barrier, from: { x: number; y: number }, to: { x: number; y: number }): boolean {
+  const [p, q] = b.axis === 'x' ? [from.x, to.x] : [from.y, to.y]
+  return p !== q && Math.min(p, q) <= b.k && b.k <= Math.max(p, q)
 }

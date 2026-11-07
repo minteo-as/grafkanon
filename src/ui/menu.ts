@@ -1,5 +1,5 @@
 import { LEVELS, WORLDS } from '../game/levels'
-import { isUnlocked, type Progress } from '../game/progress'
+import { bossRequirement, isUnlocked, worldStars, type Progress } from '../game/progress'
 import { fmtScore } from './hud'
 
 export interface MenuCallbacks {
@@ -46,7 +46,8 @@ export class Menu {
       button.querySelector('b')!.textContent = level.name
       button.querySelector('.level-text span')!.textContent = level.topic
       const meta = button.querySelector('.level-meta')!
-      if (!unlocked) meta.textContent = 'Låst'
+      const prevDone = i === 0 || !!progress.levels[LEVELS[i - 1].id]
+      if (!unlocked) meta.textContent = level.boss && prevDone ? `Kræver ${bossRequirement(level.world)} ★` : 'Låst'
       else if (saved) {
         meta.innerHTML = `<span class="stars" aria-label="${saved.stars} af 3 stjerner"></span><small></small>`
         meta.querySelector('.stars')!.textContent = starString(saved.stars)
@@ -62,6 +63,11 @@ export class Menu {
         const title = document.createElement('h2')
         title.className = 'world-title'
         title.textContent = `Verden ${world.id} · ${world.name}`
+        const { stars, max } = worldStars(progress, world.id)
+        const total = document.createElement('span')
+        total.className = 'world-stars'
+        total.textContent = `★ ${stars}/${max}`
+        title.append(total)
         const ol = document.createElement('ol')
         ol.className = 'levels'
         LEVELS.forEach((level, i) => {
