@@ -1,38 +1,38 @@
-import type { WaveSpec, Weapon } from './waves';
+import type { WaveSpec, Weapon } from './waves'
 
 export interface World {
-  id: number;
-  name: string;
-  weapon: Weapon;
+  id: number
+  name: string
+  weapon: Weapon
 }
 
 export const WORLDS: World[] = [
   { id: 1, name: 'Linjebyen', weapon: 'laser' },
   { id: 2, name: 'Parabelbjergene', weapon: 'grenade' },
-];
+]
 
 export interface Level {
-  id: string;
-  world: number;
-  name: string;
+  id: string
+  world: number
+  name: string
   /** Hvad banen træner, vist i menuen. */
-  topic: string;
+  topic: string
   /** Parametre, der står fast i hele banen, fx a = −1, mens man lærer toppunktet. */
-  locked?: { a?: number };
-  waves: WaveSpec[];
+  locked?: { a?: number }
+  waves: WaveSpec[]
 }
 
-export const weaponOf = (level: Level): Weapon => WORLDS.find(w => w.id === level.world)!.weapon;
+export const weaponOf = (level: Level): Weapon => WORLDS.find((w) => w.id === level.world)!.weapon
 
-const WHOLE = [1, 2, 3, -1, -2, -3];
-const HALF = [0.5, -0.5, 1.5, -1.5];
-const ALL = [...WHOLE, ...HALF, 0];
+const WHOLE = [1, 2, 3, -1, -2, -3]
+const HALF = [0.5, -0.5, 1.5, -1.5]
+const ALL = [...WHOLE, ...HALF, 0]
 
-const DOWN = { dx: 0, dy: -1 };
-const RIGHT = { dx: 1, dy: 0 };
-const LEFT = { dx: -1, dy: 0 };
+const DOWN = { dx: 0, dy: -1 }
+const RIGHT = { dx: 1, dy: 0 }
+const LEFT = { dx: -1, dy: 0 }
 
-const ARC_AS = [-0.5, -1, -2];
+const ARC_AS = [-0.5, -1, -2]
 
 export const LEVELS: Level[] = [
   {
@@ -48,19 +48,29 @@ export const LEVELS: Level[] = [
         hint: 'Tre glitches står på linje. Kan du ramme dem alle med ét skud?',
       },
       {
-        groups: [{ count: 3, slopes: WHOLE }, { count: 2, slopes: WHOLE }],
+        groups: [
+          { count: 3, slopes: WHOLE },
+          { count: 2, slopes: WHOLE },
+        ],
         singles: 0,
         spareShots: 1,
         hint: 'To grupper. Hvilken hældning har hver gruppe?',
       },
       {
-        groups: [{ count: 3, slopes: WHOLE }, { count: 3, slopes: WHOLE }],
+        groups: [
+          { count: 3, slopes: WHOLE },
+          { count: 3, slopes: WHOLE },
+        ],
         singles: 1,
         spareShots: 0,
         hint: 'Nu er der præcis nok skud. Hvert skud skal ramme en hel gruppe.',
       },
       {
-        groups: [{ count: 3, slopes: WHOLE }, { count: 3, slopes: WHOLE }, { count: 2, slopes: WHOLE }],
+        groups: [
+          { count: 3, slopes: WHOLE },
+          { count: 3, slopes: WHOLE },
+          { count: 2, slopes: WHOLE },
+        ],
         singles: 0,
         spareShots: 0,
         hint: 'Tre grupper. Find alle tre linjer.',
@@ -80,19 +90,29 @@ export const LEVELS: Level[] = [
         hint: 'y = 0,5x stiger ½ for hver 1 til højre. Altså 1 op for hver 2 til højre.',
       },
       {
-        groups: [{ count: 3, slopes: HALF }, { count: 3, slopes: WHOLE }],
+        groups: [
+          { count: 3, slopes: HALF },
+          { count: 3, slopes: WHOLE },
+        ],
         singles: 0,
         spareShots: 0,
         hint: 'Én gruppe har en hældning med komma, den anden et helt tal.',
       },
       {
-        groups: [{ count: 3, slopes: [0] }, { count: 3, slopes: HALF }],
+        groups: [
+          { count: 3, slopes: [0] },
+          { count: 3, slopes: HALF },
+        ],
         singles: 0,
         spareShots: 0,
         hint: 'En vandret linje har hældning 0. Så er forskriften bare y = b.',
       },
       {
-        groups: [{ count: 3, slopes: ALL }, { count: 3, slopes: ALL }, { count: 3, slopes: ALL }],
+        groups: [
+          { count: 3, slopes: ALL },
+          { count: 3, slopes: ALL },
+          { count: 3, slopes: ALL },
+        ],
         singles: 0,
         spareShots: 0,
         hint: 'Tre grupper med alle slags hældninger.',
@@ -113,21 +133,30 @@ export const LEVELS: Level[] = [
         hint: 'Marchørerne går ét felt ned ad gangen. Hældningen er den samme, men b bliver 1 mindre.',
       },
       {
-        groups: [{ count: 3, slopes: WHOLE, march: DOWN }, { count: 3, slopes: WHOLE }],
+        groups: [
+          { count: 3, slopes: WHOLE, march: DOWN },
+          { count: 3, slopes: WHOLE },
+        ],
         singles: 0,
         spareShots: 0,
         marchInterval: 3,
         hint: 'Skyd marchørerne, før de når kanten. De andre står stille.',
       },
       {
-        groups: [{ count: 3, slopes: HALF, march: DOWN }, { count: 3, slopes: WHOLE, march: DOWN }],
+        groups: [
+          { count: 3, slopes: HALF, march: DOWN },
+          { count: 3, slopes: WHOLE, march: DOWN },
+        ],
         singles: 0,
         spareShots: 0,
         marchInterval: 3,
         hint: 'To grupper marcherer. Hver gang de går ned, bliver b 1 mindre.',
       },
       {
-        groups: [{ count: 3, slopes: [1, 2, -1, -2], march: RIGHT }, { count: 3, slopes: HALF }],
+        groups: [
+          { count: 3, slopes: [1, 2, -1, -2], march: RIGHT },
+          { count: 3, slopes: HALF },
+        ],
         singles: 0,
         spareShots: 0,
         marchInterval: 3.5,
@@ -142,21 +171,30 @@ export const LEVELS: Level[] = [
     topic: 'Alt fra Linjebyen på én gang',
     waves: [
       {
-        groups: [{ count: 3, slopes: ALL }, { count: 3, slopes: ALL, march: DOWN }],
+        groups: [
+          { count: 3, slopes: ALL },
+          { count: 3, slopes: ALL, march: DOWN },
+        ],
         singles: 1,
         spareShots: 0,
         marchInterval: 2.8,
         hint: 'Start med dem, der bevæger sig.',
       },
       {
-        groups: [{ count: 3, slopes: [0], march: DOWN }, { count: 3, slopes: HALF }],
+        groups: [
+          { count: 3, slopes: [0], march: DOWN },
+          { count: 3, slopes: HALF },
+        ],
         singles: 0,
         spareShots: 0,
         marchInterval: 2.8,
         hint: 'En vandret linje, der går nedad. Hvad sker der med b?',
       },
       {
-        groups: [{ count: 3, slopes: WHOLE, march: LEFT }, { count: 3, slopes: ALL }],
+        groups: [
+          { count: 3, slopes: WHOLE, march: LEFT },
+          { count: 3, slopes: ALL },
+        ],
         singles: 0,
         spareShots: 0,
         marchInterval: 3,
@@ -195,14 +233,20 @@ export const LEVELS: Level[] = [
         hint: 'Tre droner på samme bue. Find toppunktet, så rammer buen også de andre.',
       },
       {
-        groups: [{ kind: 'arc', count: 3, as: [-1], top: true }, { kind: 'arc', count: 2, as: [-1], top: true }],
+        groups: [
+          { kind: 'arc', count: 3, as: [-1], top: true },
+          { kind: 'arc', count: 2, as: [-1], top: true },
+        ],
         singles: 0,
         spareShots: 0,
         walls: 1,
         hint: 'En mur! Granaten stopper, hvis buen er for lav, hvor muren står.',
       },
       {
-        groups: [{ kind: 'arc', count: 3, as: [-1], top: true }, { kind: 'arc', count: 3, as: [-1], top: true }],
+        groups: [
+          { kind: 'arc', count: 3, as: [-1], top: true },
+          { kind: 'arc', count: 3, as: [-1], top: true },
+        ],
         singles: 0,
         spareShots: 0,
         walls: 1,
@@ -229,14 +273,20 @@ export const LEVELS: Level[] = [
         hint: 'a = −2 giver en smal og stejl bue.',
       },
       {
-        groups: [{ kind: 'arc', count: 3, as: ARC_AS, top: true }, { kind: 'arc', count: 3, as: ARC_AS, top: true }],
+        groups: [
+          { kind: 'arc', count: 3, as: ARC_AS, top: true },
+          { kind: 'arc', count: 3, as: ARC_AS, top: true },
+        ],
         singles: 0,
         spareShots: 0,
         walls: 1,
         hint: 'To buer med forskellig bredde. Find toppunktet først, og prøv dig så frem med a.',
       },
       {
-        groups: [{ kind: 'arc', count: 3, as: ARC_AS }, { kind: 'arc', count: 2, as: ARC_AS }],
+        groups: [
+          { kind: 'arc', count: 3, as: ARC_AS },
+          { kind: 'arc', count: 2, as: ARC_AS },
+        ],
         singles: 0,
         spareShots: 0,
         walls: 1,
@@ -263,14 +313,20 @@ export const LEVELS: Level[] = [
         hint: 'Nulpunkterne ligger lige langt fra toppunktet til hver side.',
       },
       {
-        groups: [{ kind: 'arc', count: 3, as: ARC_AS, ground: true }, { kind: 'arc', count: 3, as: ARC_AS, top: true }],
+        groups: [
+          { kind: 'arc', count: 3, as: ARC_AS, ground: true },
+          { kind: 'arc', count: 3, as: ARC_AS, top: true },
+        ],
         singles: 0,
         spareShots: 0,
         walls: 1,
         hint: 'Én bue skal lande på glitchen, den anden skal gennem et toppunkt.',
       },
       {
-        groups: [{ kind: 'arc', count: 3, as: ARC_AS, ground: true }, { kind: 'arc', count: 3, as: ARC_AS }],
+        groups: [
+          { kind: 'arc', count: 3, as: ARC_AS, ground: true },
+          { kind: 'arc', count: 3, as: ARC_AS },
+        ],
         singles: 1,
         spareShots: 0,
         walls: 2,
@@ -278,4 +334,4 @@ export const LEVELS: Level[] = [
       },
     ],
   },
-];
+]

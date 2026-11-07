@@ -1,280 +1,797 @@
 <title>Grafkanonen</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@500;700&family=Unbounded:wght@500;700;800&display=swap">
+<meta name="claude:viewport-fit-sides" content="cover" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@500;700&family=Unbounded:wght@500;700;800&display=swap"
+/>
 <style>
-/* Layout: millimeterpapir-bånd med en spilbar demo øverst, derefter én læsekolonne med kort og tabeller */
-:root {
-  --paper: #f2f5f9;
-  --sheet: #ffffff;
-  --gridline: #dfe7f1;
-  --ink: #13213a;
-  --muted: #56657c;
-  --rule: #cdd7e4;
-  --accent: #cf4510;
-  --accent-soft: #fbe7dd;
-  --blue: #1d5bbf;
-  --blue-soft: #e3ecfa;
-  /* spilskærmen har sit eget faste udseende i begge temaer */
-  --game-bg: #0b1320;
-  --game-panel: #111c2d;
-  --game-line: #22344e;
-  --game-ink: #dce6f4;
-  --game-muted: #8ea2c0;
-  --game-beam: #5ce1ff;
-  --game-aim: #ffd166;
-  --game-enemy: #ff6b3d;
+  /* Layout: millimeterpapir-bånd med en spilbar demo øverst, derefter én læsekolonne med kort og tabeller */
+  :root {
+    --paper: #f2f5f9;
+    --sheet: #ffffff;
+    --gridline: #dfe7f1;
+    --ink: #13213a;
+    --muted: #56657c;
+    --rule: #cdd7e4;
+    --accent: #cf4510;
+    --accent-soft: #fbe7dd;
+    --blue: #1d5bbf;
+    --blue-soft: #e3ecfa;
+    /* spilskærmen har sit eget faste udseende i begge temaer */
+    --game-bg: #0b1320;
+    --game-panel: #111c2d;
+    --game-line: #22344e;
+    --game-ink: #dce6f4;
+    --game-muted: #8ea2c0;
+    --game-beam: #5ce1ff;
+    --game-aim: #ffd166;
+    --game-enemy: #ff6b3d;
 
-  --f-display: "Unbounded", "Arial Black", system-ui, sans-serif;
-  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #0d1521; --sheet: #121d2c; --gridline: #162335; --ink: #e4ebf5; --muted: #95a5bb;
-    --rule: #26374f; --accent: #ff7a45; --accent-soft: #3a1d10; --blue: #82b2ff; --blue-soft: #14284a;
+    --f-display: 'Unbounded', 'Arial Black', system-ui, sans-serif;
+    --f-body: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --f-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --paper: #0d1521;
+      --sheet: #121d2c;
+      --gridline: #162335;
+      --ink: #e4ebf5;
+      --muted: #95a5bb;
+      --rule: #26374f;
+      --accent: #ff7a45;
+      --accent-soft: #3a1d10;
+      --blue: #82b2ff;
+      --blue-soft: #14284a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme='dark'] {
+    --paper: #0d1521;
+    --sheet: #121d2c;
+    --gridline: #162335;
+    --ink: #e4ebf5;
+    --muted: #95a5bb;
+    --rule: #26374f;
+    --accent: #ff7a45;
+    --accent-soft: #3a1d10;
+    --blue: #82b2ff;
+    --blue-soft: #14284a;
     color-scheme: dark;
   }
-}
-:root[data-theme="dark"] {
-  --paper: #0d1521; --sheet: #121d2c; --gridline: #162335; --ink: #e4ebf5; --muted: #95a5bb;
-  --rule: #26374f; --accent: #ff7a45; --accent-soft: #3a1d10; --blue: #82b2ff; --blue-soft: #14284a;
-  color-scheme: dark;
-}
 
-* { box-sizing: border-box; }
-[hidden] { display: none !important; }
-body {
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--f-body);
-  font-size: 17px;
-  line-height: 1.55;
-}
-.band {
-  background-color: var(--paper);
-  background-image:
-    linear-gradient(var(--gridline) 1px, transparent 1px),
-    linear-gradient(90deg, var(--gridline) 1px, transparent 1px);
-  background-size: 24px 24px;
-  border-bottom: 1px solid var(--rule);
-}
-.wrap {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-}
-header.wrap { padding-block: 40px 20px; }
-.eyebrow {
-  font-family: var(--f-mono);
-  font-size: 12.5px;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-h1 {
-  font-family: var(--f-display);
-  font-weight: 800;
-  font-size: clamp(38px, 7vw, 76px);
-  line-height: 1;
-  letter-spacing: -.02em;
-  margin: 10px 0 14px;
-}
-h1 .fx { color: var(--accent); }
-.lead { font-size: clamp(18px, 2.2vw, 21px); max-width: 60ch; margin: 0; text-wrap: pretty; }
-.lead em { font-style: normal; font-family: var(--f-mono); font-size: .92em; color: var(--blue); }
+  * {
+    box-sizing: border-box;
+  }
+  [hidden] {
+    display: none !important;
+  }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 17px;
+    line-height: 1.55;
+  }
+  .band {
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--gridline) 1px, transparent 1px),
+      linear-gradient(90deg, var(--gridline) 1px, transparent 1px);
+    background-size: 24px 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  header.wrap {
+    padding-block: 40px 20px;
+  }
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 12.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 800;
+    font-size: clamp(38px, 7vw, 76px);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin: 10px 0 14px;
+  }
+  h1 .fx {
+    color: var(--accent);
+  }
+  .lead {
+    font-size: clamp(18px, 2.2vw, 21px);
+    max-width: 60ch;
+    margin: 0;
+    text-wrap: pretty;
+  }
+  .lead em {
+    font-style: normal;
+    font-family: var(--f-mono);
+    font-size: 0.92em;
+    color: var(--blue);
+  }
 
-/* ---------- spil-demo ---------- */
-.demo-wrap { padding-block: 8px 40px; }
-.game {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  background: var(--game-bg);
-  color: var(--game-ink);
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 18px 50px -24px rgba(10, 20, 40, .55);
-}
-@media (max-width: 860px) { .game { grid-template-columns: minmax(0, 1fr); } }
-.stage { position: relative; aspect-ratio: 4 / 3; min-width: 0; max-width: 100%; }
-.stage canvas { display: block; width: 100%; height: 100%; }
-.hud {
-  position: absolute; inset: 12px 12px auto 12px;
-  display: flex; flex-wrap: wrap; gap: 8px; pointer-events: none;
-}
-.chip {
-  font-family: var(--f-mono); font-size: 13px; font-weight: 500;
-  background: rgba(11, 19, 32, .78); border: 1px solid var(--game-line);
-  padding: 5px 10px; border-radius: 999px; font-variant-numeric: tabular-nums;
-  color: var(--game-ink);
-}
-.chip b { color: var(--game-aim); font-weight: 700; }
-.chip.mult { margin-left: auto; }
-.toast {
-  position: absolute; left: 50%; top: 22%; transform: translate(-50%, 0);
-  font-family: var(--f-display); font-weight: 700; font-size: clamp(16px, 2.6vw, 24px);
-  color: var(--game-aim); text-shadow: 0 2px 12px rgba(0,0,0,.6);
-  pointer-events: none; opacity: 0; transition: opacity .2s, transform .5s;
-  white-space: nowrap;
-}
-.toast.show { opacity: 1; transform: translate(-50%, -10px); }
-.overlay {
-  position: absolute; inset: 0; display: grid; place-items: center;
-  background: rgba(8, 14, 24, .72); text-align: center; padding: 20px;
-}
-.overlay .box { max-width: 360px; display: grid; gap: 10px; justify-items: center; }
-.overlay h3 { font-family: var(--f-display); font-size: 24px; margin: 0; color: var(--game-ink); }
-.overlay p { margin: 0; color: var(--game-muted); }
-.hint {
-  position: absolute; left: 12px; right: 12px; bottom: 12px;
-  font-size: 14px; color: var(--game-muted); pointer-events: none;
-  text-shadow: 0 1px 6px rgba(0,0,0,.8);
-}
-.panel {
-  background: var(--game-panel);
-  border-left: 1px solid var(--game-line);
-  padding: 18px;
-  display: flex; flex-direction: column; gap: 16px;
-  min-width: 0;
-}
-@media (max-width: 860px) { .panel { border-left: 0; border-top: 1px solid var(--game-line); } }
-.plabel {
-  font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--game-muted);
-}
-.formula {
-  font-family: var(--f-mono); font-weight: 700; font-size: 28px; color: var(--game-beam);
-  font-variant-numeric: tabular-nums; margin-top: 4px; white-space: nowrap; overflow-x: auto;
-}
-.warn { font-size: 13px; color: var(--game-aim); min-height: 1.3em; }
-.slider { display: grid; grid-template-columns: 22px minmax(0,1fr) 52px; align-items: center; gap: 10px; }
-.slider label { font-family: var(--f-mono); font-weight: 700; font-size: 17px; }
-.slider output { font-family: var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; }
-input[type="range"] { width: 100%; accent-color: var(--game-beam); }
-.typein { display: flex; gap: 8px; }
-.typein input {
-  flex: 1; min-width: 0; font-family: var(--f-mono); font-size: 15px;
-  background: var(--game-bg); color: var(--game-ink); border: 1px solid var(--game-line);
-  border-radius: 8px; padding: 8px 10px;
-}
-.typein input:focus-visible, .btn:focus-visible, .toggle input:focus-visible + span { outline: 2px solid var(--game-aim); outline-offset: 2px; }
-.err { font-size: 13px; color: var(--game-enemy); min-height: 1.3em; margin-top: 4px; }
-.btn {
-  font-family: var(--f-body); font-weight: 700; font-size: 15px;
-  border: 1px solid var(--game-line); background: #1a2a42; color: var(--game-ink);
-  border-radius: 8px; padding: 8px 14px; cursor: pointer;
-}
-.btn:hover { background: #22375a; }
-.btn.fire {
-  font-family: var(--f-display); font-size: 20px; letter-spacing: .04em;
-  background: var(--game-enemy); border-color: transparent; color: #1a0b04; padding: 14px;
-}
-.btn.fire:hover { background: #ff8559; }
-.btn.fire:disabled { opacity: .45; cursor: default; }
-.toggles { display: grid; gap: 8px; }
-.toggle { display: flex; align-items: center; gap: 10px; font-size: 14.5px; cursor: pointer; }
-.toggle input { accent-color: var(--game-beam); width: 17px; height: 17px; }
-.toggle small { color: var(--game-muted); margin-left: auto; font-family: var(--f-mono); }
-.keys { font-size: 13px; color: var(--game-muted); margin-top: auto; }
-kbd { font-family: var(--f-mono); font-size: 12px; border: 1px solid var(--game-line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; }
-.demo-note { font-size: 14.5px; color: var(--muted); margin: 12px 2px 0; max-width: 75ch; }
+  /* ---------- spil-demo ---------- */
+  .demo-wrap {
+    padding-block: 8px 40px;
+  }
+  .game {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    background: var(--game-bg);
+    color: var(--game-ink);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px -24px rgba(10, 20, 40, 0.55);
+  }
+  @media (max-width: 860px) {
+    .game {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .stage {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .stage canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .hud {
+    position: absolute;
+    inset: 12px 12px auto 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .chip {
+    font-family: var(--f-mono);
+    font-size: 13px;
+    font-weight: 500;
+    background: rgba(11, 19, 32, 0.78);
+    border: 1px solid var(--game-line);
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+    color: var(--game-ink);
+  }
+  .chip b {
+    color: var(--game-aim);
+    font-weight: 700;
+  }
+  .chip.mult {
+    margin-left: auto;
+  }
+  .toast {
+    position: absolute;
+    left: 50%;
+    top: 22%;
+    transform: translate(-50%, 0);
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: clamp(16px, 2.6vw, 24px);
+    color: var(--game-aim);
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+    opacity: 0;
+    transition:
+      opacity 0.2s,
+      transform 0.5s;
+    white-space: nowrap;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translate(-50%, -10px);
+  }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(8, 14, 24, 0.72);
+    text-align: center;
+    padding: 20px;
+  }
+  .overlay .box {
+    max-width: 360px;
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+  }
+  .overlay h3 {
+    font-family: var(--f-display);
+    font-size: 24px;
+    margin: 0;
+    color: var(--game-ink);
+  }
+  .overlay p {
+    margin: 0;
+    color: var(--game-muted);
+  }
+  .hint {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    font-size: 14px;
+    color: var(--game-muted);
+    pointer-events: none;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+  }
+  .panel {
+    background: var(--game-panel);
+    border-left: 1px solid var(--game-line);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+  @media (max-width: 860px) {
+    .panel {
+      border-left: 0;
+      border-top: 1px solid var(--game-line);
+    }
+  }
+  .plabel {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--game-muted);
+  }
+  .formula {
+    font-family: var(--f-mono);
+    font-weight: 700;
+    font-size: 28px;
+    color: var(--game-beam);
+    font-variant-numeric: tabular-nums;
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow-x: auto;
+  }
+  .warn {
+    font-size: 13px;
+    color: var(--game-aim);
+    min-height: 1.3em;
+  }
+  .slider {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) 52px;
+    align-items: center;
+    gap: 10px;
+  }
+  .slider label {
+    font-family: var(--f-mono);
+    font-weight: 700;
+    font-size: 17px;
+  }
+  .slider output {
+    font-family: var(--f-mono);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  input[type='range'] {
+    width: 100%;
+    accent-color: var(--game-beam);
+  }
+  .typein {
+    display: flex;
+    gap: 8px;
+  }
+  .typein input {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--f-mono);
+    font-size: 15px;
+    background: var(--game-bg);
+    color: var(--game-ink);
+    border: 1px solid var(--game-line);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .typein input:focus-visible,
+  .btn:focus-visible,
+  .toggle input:focus-visible + span {
+    outline: 2px solid var(--game-aim);
+    outline-offset: 2px;
+  }
+  .err {
+    font-size: 13px;
+    color: var(--game-enemy);
+    min-height: 1.3em;
+    margin-top: 4px;
+  }
+  .btn {
+    font-family: var(--f-body);
+    font-weight: 700;
+    font-size: 15px;
+    border: 1px solid var(--game-line);
+    background: #1a2a42;
+    color: var(--game-ink);
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  .btn:hover {
+    background: #22375a;
+  }
+  .btn.fire {
+    font-family: var(--f-display);
+    font-size: 20px;
+    letter-spacing: 0.04em;
+    background: var(--game-enemy);
+    border-color: transparent;
+    color: #1a0b04;
+    padding: 14px;
+  }
+  .btn.fire:hover {
+    background: #ff8559;
+  }
+  .btn.fire:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  .toggles {
+    display: grid;
+    gap: 8px;
+  }
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14.5px;
+    cursor: pointer;
+  }
+  .toggle input {
+    accent-color: var(--game-beam);
+    width: 17px;
+    height: 17px;
+  }
+  .toggle small {
+    color: var(--game-muted);
+    margin-left: auto;
+    font-family: var(--f-mono);
+  }
+  .keys {
+    font-size: 13px;
+    color: var(--game-muted);
+    margin-top: auto;
+  }
+  kbd {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    border: 1px solid var(--game-line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 0 5px;
+  }
+  .demo-note {
+    font-size: 14.5px;
+    color: var(--muted);
+    margin: 12px 2px 0;
+    max-width: 75ch;
+  }
 
-/* ---------- dokument ---------- */
-main.wrap { padding-block: 24px 80px; }
-section { padding-block: 36px; border-top: 1px solid var(--rule); }
-section:first-child { border-top: 0; }
-.sec-head { display: grid; gap: 6px; margin-bottom: 18px; }
-h2 {
-  font-family: var(--f-display); font-weight: 700; font-size: clamp(24px, 3.4vw, 34px);
-  line-height: 1.15; letter-spacing: -.01em; margin: 0; text-wrap: balance;
-}
-h3 { font-family: var(--f-display); font-weight: 500; font-size: 18px; margin: 0; }
-.prose { max-width: 68ch; }
-.prose p { margin: 0 0 12px; }
-.mono { font-family: var(--f-mono); font-size: .92em; }
-code { font-family: var(--f-mono); font-size: .9em; color: var(--blue); white-space: nowrap; }
+  /* ---------- dokument ---------- */
+  main.wrap {
+    padding-block: 24px 80px;
+  }
+  section {
+    padding-block: 36px;
+    border-top: 1px solid var(--rule);
+  }
+  section:first-child {
+    border-top: 0;
+  }
+  .sec-head {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 18px;
+  }
+  h2 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: clamp(24px, 3.4vw, 34px);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--f-display);
+    font-weight: 500;
+    font-size: 18px;
+    margin: 0;
+  }
+  .prose {
+    max-width: 68ch;
+  }
+  .prose p {
+    margin: 0 0 12px;
+  }
+  .mono {
+    font-family: var(--f-mono);
+    font-size: 0.92em;
+  }
+  code {
+    font-family: var(--f-mono);
+    font-size: 0.9em;
+    color: var(--blue);
+    white-space: nowrap;
+  }
 
-.loop { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px; counter-reset: s; }
-@media (max-width: 860px) { .loop { grid-template-columns: minmax(0,1fr); } }
-.loop li { counter-increment: s; border-top: 3px solid var(--accent); padding-top: 10px; min-width: 0; }
-.loop li::before { content: counter(s); font-family: var(--f-display); font-weight: 800; font-size: 28px; color: var(--accent); display: block; line-height: 1; margin-bottom: 6px; }
-.loop b { display: block; margin-bottom: 2px; }
-.loop span { color: var(--muted); font-size: 15.5px; }
+  .loop {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    counter-reset: s;
+  }
+  @media (max-width: 860px) {
+    .loop {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .loop li {
+    counter-increment: s;
+    border-top: 3px solid var(--accent);
+    padding-top: 10px;
+    min-width: 0;
+  }
+  .loop li::before {
+    content: counter(s);
+    font-family: var(--f-display);
+    font-weight: 800;
+    font-size: 28px;
+    color: var(--accent);
+    display: block;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .loop b {
+    display: block;
+    margin-bottom: 2px;
+  }
+  .loop span {
+    color: var(--muted);
+    font-size: 15.5px;
+  }
 
-.weapons { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
-@media (max-width: 760px) { .weapons { grid-template-columns: minmax(0,1fr); } }
-.weapon { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 18px; display: grid; gap: 8px; align-content: start; min-width: 0; }
-.weapon .wf { font-family: var(--f-mono); font-weight: 700; font-size: 21px; color: var(--accent); }
-.weapon p { margin: 0; }
-.weapon dl { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 4px 12px; margin: 4px 0 0; font-size: 15px; }
-.weapon dt { color: var(--muted); }
-.weapon dd { margin: 0; }
+  .weapons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  @media (max-width: 760px) {
+    .weapons {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .weapon {
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 18px;
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    min-width: 0;
+  }
+  .weapon .wf {
+    font-family: var(--f-mono);
+    font-weight: 700;
+    font-size: 21px;
+    color: var(--accent);
+  }
+  .weapon p {
+    margin: 0;
+  }
+  .weapon dl {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px 12px;
+    margin: 4px 0 0;
+    font-size: 15px;
+  }
+  .weapon dt {
+    color: var(--muted);
+  }
+  .weapon dd {
+    margin: 0;
+  }
 
-.lab { margin: 22px 0 0; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 18px; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; align-items: center; }
-@media (max-width: 760px) { .lab { grid-template-columns: minmax(0,1fr); } }
-.lab svg { width: 100%; height: auto; display: block; }
-.lab .ctrl { display: grid; gap: 12px; min-width: 0; }
-.lab .pf { font-family: var(--f-mono); font-weight: 700; font-size: 19px; color: var(--accent); overflow-x: auto; white-space: nowrap; }
-.lab .slider label { font-size: 15px; }
-.lab input[type="range"] { accent-color: var(--accent); }
-.lab .meta { font-size: 14.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.lab .res { font-weight: 700; min-height: 1.5em; }
-.lab .res.ok { color: var(--blue); }
-.lab .res.bad { color: var(--accent); }
-.btn-doc { font-family: var(--f-body); font-weight: 700; font-size: 15px; border: 0; border-radius: 8px; padding: 10px 16px; background: var(--accent); color: var(--sheet); cursor: pointer; justify-self: start; }
-.btn-doc:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.btn-doc:disabled { opacity: .5; cursor: default; }
-svg .gl { stroke: var(--gridline); stroke-width: 1; }
-svg .ax { stroke: var(--muted); stroke-width: 1.5; }
-svg .tk { fill: var(--muted); font-family: var(--f-mono); font-size: 11px; }
-svg .wall { fill: var(--muted); }
-svg .tgt { fill: var(--blue); }
-svg .curve { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 7 5; }
-svg .top { fill: var(--accent); }
-svg .ball { fill: var(--ink); }
-svg .can { fill: var(--ink); }
-svg .lbl { fill: var(--ink); font-family: var(--f-mono); font-size: 12px; }
+  .lab {
+    margin: 22px 0 0;
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: center;
+  }
+  @media (max-width: 760px) {
+    .lab {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .lab svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .lab .ctrl {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+  }
+  .lab .pf {
+    font-family: var(--f-mono);
+    font-weight: 700;
+    font-size: 19px;
+    color: var(--accent);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .lab .slider label {
+    font-size: 15px;
+  }
+  .lab input[type='range'] {
+    accent-color: var(--accent);
+  }
+  .lab .meta {
+    font-size: 14.5px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .lab .res {
+    font-weight: 700;
+    min-height: 1.5em;
+  }
+  .lab .res.ok {
+    color: var(--blue);
+  }
+  .lab .res.bad {
+    color: var(--accent);
+  }
+  .btn-doc {
+    font-family: var(--f-body);
+    font-weight: 700;
+    font-size: 15px;
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 16px;
+    background: var(--accent);
+    color: var(--sheet);
+    cursor: pointer;
+    justify-self: start;
+  }
+  .btn-doc:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+  .btn-doc:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  svg .gl {
+    stroke: var(--gridline);
+    stroke-width: 1;
+  }
+  svg .ax {
+    stroke: var(--muted);
+    stroke-width: 1.5;
+  }
+  svg .tk {
+    fill: var(--muted);
+    font-family: var(--f-mono);
+    font-size: 11px;
+  }
+  svg .wall {
+    fill: var(--muted);
+  }
+  svg .tgt {
+    fill: var(--blue);
+  }
+  svg .curve {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.5;
+    stroke-dasharray: 7 5;
+  }
+  svg .top {
+    fill: var(--accent);
+  }
+  svg .ball {
+    fill: var(--ink);
+  }
+  svg .can {
+    fill: var(--ink);
+  }
+  svg .lbl {
+    fill: var(--ink);
+    font-family: var(--f-mono);
+    font-size: 12px;
+  }
 
-.table-scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 15.5px; }
-th, td { text-align: left; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
-th { font-family: var(--f-mono); font-weight: 500; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-td:first-child { font-weight: 700; white-space: nowrap; }
-.pill { display: inline-block; font-family: var(--f-mono); font-size: 12.5px; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
-.pill.b { background: var(--blue-soft); color: var(--blue); }
+  .table-scroll {
+    overflow-x: auto;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 560px;
+    font-size: 15.5px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 10px 12px 10px 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--f-mono);
+    font-weight: 500;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  td:first-child {
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .pill {
+    display: inline-block;
+    font-family: var(--f-mono);
+    font-size: 12.5px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .pill.b {
+    background: var(--blue-soft);
+    color: var(--blue);
+  }
 
-.rules { display: grid; gap: 10px; padding: 0; margin: 0 0 22px; list-style: none; max-width: 70ch; }
-.rules li { padding-left: 20px; position: relative; }
-.rules li::before { content: ""; position: absolute; left: 0; top: .62em; width: 9px; height: 2px; background: var(--accent); }
+  .rules {
+    display: grid;
+    gap: 10px;
+    padding: 0;
+    margin: 0 0 22px;
+    list-style: none;
+    max-width: 70ch;
+  }
+  .rules li {
+    padding-left: 20px;
+    position: relative;
+  }
+  .rules li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.62em;
+    width: 9px;
+    height: 2px;
+    background: var(--accent);
+  }
 
-.cols { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 28px; }
-@media (max-width: 760px) { .cols { grid-template-columns: minmax(0,1fr); } }
-.cols > div { min-width: 0; }
-.plain { padding-left: 20px; margin: 8px 0 0; }
-.plain li { margin-bottom: 6px; }
+  .cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px;
+  }
+  @media (max-width: 760px) {
+    .cols {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .cols > div {
+    min-width: 0;
+  }
+  .plain {
+    padding-left: 20px;
+    margin: 8px 0 0;
+  }
+  .plain li {
+    margin-bottom: 6px;
+  }
 
-.plan { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; counter-reset: m; max-width: 760px; }
-.plan li { counter-increment: m; display: grid; grid-template-columns: 52px minmax(0,1fr); gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--rule); }
-.plan li::before { content: "M" counter(m); font-family: var(--f-mono); font-weight: 700; color: var(--accent); font-size: 18px; }
-.plan li.test { grid-template-columns: 52px minmax(0,1fr); }
-.plan li.test::before { content: "✓"; color: var(--blue); counter-increment: none; }
-.plan li.test { counter-increment: none; color: var(--blue); font-weight: 700; }
-.plan b { display: block; }
-.plan span { color: var(--muted); }
+  .plan {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0;
+    counter-reset: m;
+    max-width: 760px;
+  }
+  .plan li {
+    counter-increment: m;
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .plan li::before {
+    content: 'M' counter(m);
+    font-family: var(--f-mono);
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 18px;
+  }
+  .plan li.test {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+  .plan li.test::before {
+    content: '✓';
+    color: var(--blue);
+    counter-increment: none;
+  }
+  .plan li.test {
+    counter-increment: none;
+    color: var(--blue);
+    font-weight: 700;
+  }
+  .plan b {
+    display: block;
+  }
+  .plan span {
+    color: var(--muted);
+  }
 
-.qs { display: grid; gap: 14px; max-width: 72ch; padding-left: 22px; margin: 0; }
-.qs li::marker { font-family: var(--f-mono); color: var(--accent); font-weight: 700; }
+  .qs {
+    display: grid;
+    gap: 14px;
+    max-width: 72ch;
+    padding-left: 22px;
+    margin: 0;
+  }
+  .qs li::marker {
+    font-family: var(--f-mono);
+    color: var(--accent);
+    font-weight: 700;
+  }
 
-@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .toast {
+      transition: none;
+    }
+  }
 </style>
 
 <div class="band">
   <header class="wrap">
     <div class="eyebrow">Spildesign · udkast 1 · matematik til 9. klasse</div>
     <h1>Graf<span class="fx">kanonen</span></h1>
-    <p class="lead">Glitches har invaderet koordinatsystemet. Dit eneste våben er en kanon, der skyder langs grafer. Skriv <em>y = 2x + 3</em>, og strålen følger linjen hen over banen. Alt, hvad der står på linjen, bliver ramt.</p>
+    <p class="lead">
+      Glitches har invaderet koordinatsystemet. Dit eneste våben er en kanon, der skyder langs grafer. Skriv
+      <em>y = 2x + 3</em>, og strålen følger linjen hen over banen. Alt, hvad der står på linjen, bliver ramt.
+    </p>
   </header>
 
   <div class="wrap demo-wrap">
@@ -304,36 +821,50 @@ td:first-child { font-weight: 700; white-space: nowrap; }
         </div>
         <div class="slider">
           <label for="sa">a</label>
-          <input type="range" id="sa" min="-4" max="4" step="0.5" value="1">
+          <input type="range" id="sa" min="-4" max="4" step="0.5" value="1" />
           <output id="va" for="sa">1</output>
         </div>
         <div class="slider">
           <label for="sb">b</label>
-          <input type="range" id="sb" min="-10" max="10" step="1" value="0">
+          <input type="range" id="sb" min="-10" max="10" step="1" value="0" />
           <output id="vb" for="sb">0</output>
         </div>
         <div>
-          <div class="plabel" style="margin-bottom:6px">Eller skriv selv</div>
+          <div class="plabel" style="margin-bottom: 6px">Eller skriv selv</div>
           <form class="typein" id="typeForm">
-            <input id="fin" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="y = 0,5x − 2" aria-label="Skriv en funktion">
+            <input
+              id="fin"
+              type="text"
+              inputmode="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="y = 0,5x − 2"
+              aria-label="Skriv en funktion"
+            />
             <button class="btn" type="submit">Brug</button>
           </form>
           <div class="err" id="err"></div>
         </div>
         <button class="btn fire" id="fire" type="button">SKYD</button>
         <div class="toggles">
-          <label class="toggle"><input type="checkbox" id="tAim" checked><span>Sigtelinje</span><small>fra = ×2</small></label>
-          <label class="toggle"><input type="checkbox" id="tCoords" checked><span>Vis koordinater</span><small>fra = ×1,5</small></label>
+          <label class="toggle"
+            ><input type="checkbox" id="tAim" checked /><span>Sigtelinje</span><small>fra = ×2</small></label
+          >
+          <label class="toggle"
+            ><input type="checkbox" id="tCoords" checked /><span>Vis koordinater</span><small>fra = ×1,5</small></label
+          >
         </div>
         <div class="keys"><kbd>Mellemrum</kbd> skyder, når du ikke skriver i feltet.</div>
       </div>
     </div>
-    <p class="demo-note">Det her er en grov prototype af kernen, lavet for at vise idéen. Den rigtige version får lyd, bedre grafik, fjender der bevæger sig, og flere våben. Bølgerne laves tilfældigt, så de er forskellige hver gang.</p>
+    <p class="demo-note">
+      Det her er en grov prototype af kernen, lavet for at vise idéen. Den rigtige version får lyd, bedre grafik,
+      fjender der bevæger sig, og flere våben. Bølgerne laves tilfældigt, så de er forskellige hver gang.
+    </p>
   </div>
 </div>
 
 <main class="wrap">
-
   <section>
     <div class="sec-head">
       <div class="eyebrow">Kerneloopet</div>
@@ -346,8 +877,12 @@ td:first-child { font-weight: 700; white-space: nowrap; }
       <li><b>Skyd</b><span>Strålen følger grafen. Flere træffere i ét skud giver combo.</span></li>
       <li><b>Næste bølge</b><span>Sværere hældninger, færre skud og nye typer fjender.</span></li>
     </ol>
-    <div class="prose" style="margin-top:22px">
-      <p>Spillet belønner, at man ser matematikken. En elev, der kan se, at tre punkter ligger på <code>y = 2x − 1</code>, klarer bølgen med ét skud. En elev, der gætter, bruger alle sine skud. Der er ingen quizspørgsmål, der afbryder spillet. Funktionen <em>er</em> sigtet.</p>
+    <div class="prose" style="margin-top: 22px">
+      <p>
+        Spillet belønner, at man ser matematikken. En elev, der kan se, at tre punkter ligger på
+        <code>y = 2x − 1</code>, klarer bølgen med ét skud. En elev, der gætter, bruger alle sine skud. Der er ingen
+        quizspørgsmål, der afbryder spillet. Funktionen <em>er</em> sigtet.
+      </p>
     </div>
   </section>
 
@@ -361,25 +896,45 @@ td:first-child { font-weight: 700; white-space: nowrap; }
         <h3>Laser</h3>
         <div class="wf">y = ax + b</div>
         <p>En ret stråle tværs over hele banen. Rammer alt, der står på linjen.</p>
-        <dl><dt>Træner</dt><dd>Hældning og skæring med y-aksen</dd><dt>Låses op</dt><dd><span class="pill">Verden 1</span></dd></dl>
+        <dl>
+          <dt>Træner</dt>
+          <dd>Hældning og skæring med y-aksen</dd>
+          <dt>Låses op</dt>
+          <dd><span class="pill">Verden 1</span></dd>
+        </dl>
       </article>
       <article class="weapon">
         <h3>Barriere</h3>
         <div class="wf">x = k &nbsp;eller&nbsp; y = k</div>
         <p>En væg, der stopper glitches, som går hen over banen, i tre sekunder.</p>
-        <dl><dt>Træner</dt><dd>Lodrette og vandrette linjer, som mange blander sammen</dd><dt>Låses op</dt><dd><span class="pill">Verden 1, bane 4</span></dd></dl>
+        <dl>
+          <dt>Træner</dt>
+          <dd>Lodrette og vandrette linjer, som mange blander sammen</dd>
+          <dt>Låses op</dt>
+          <dd><span class="pill">Verden 1, bane 4</span></dd>
+        </dl>
       </article>
       <article class="weapon">
         <h3>Granatkaster</h3>
         <div class="wf">y = a(x − h)² + k</div>
         <p>Skyder i en bue hen over mure. Man styrer toppunktet, og granaten lander i nulpunktet.</p>
-        <dl><dt>Træner</dt><dd>Parabler, toppunkt og nulpunkter</dd><dt>Låses op</dt><dd><span class="pill">Verden 2</span></dd></dl>
+        <dl>
+          <dt>Træner</dt>
+          <dd>Parabler, toppunkt og nulpunkter</dd>
+          <dt>Låses op</dt>
+          <dd><span class="pill">Verden 2</span></dd>
+        </dl>
       </article>
       <article class="weapon">
         <h3>Vækstraket</h3>
         <div class="wf">y = b · aˣ</div>
         <p>Starter lavt og accelererer opad. God mod glitches, der står langt væk og højt oppe.</p>
-        <dl><dt>Træner</dt><dd>Procentvis vækst. a = 1,2 betyder +20 % pr. skridt</dd><dt>Låses op</dt><dd><span class="pill">Verden 3</span></dd></dl>
+        <dl>
+          <dt>Træner</dt>
+          <dd>Procentvis vækst. a = 1,2 betyder +20 % pr. skridt</dd>
+          <dt>Låses op</dt>
+          <dd><span class="pill">Verden 3</span></dd>
+        </dl>
       </article>
     </div>
 
@@ -392,7 +947,10 @@ td:first-child { font-weight: 700; white-space: nowrap; }
         <circle id="pTop" class="top" r="5"></circle>
         <text id="pTopLbl" class="lbl"></text>
         <circle id="pBall" class="ball" r="6" hidden></circle>
-        <g class="can"><rect x="28" y="248" width="24" height="12" rx="3"></rect><circle cx="40" cy="250" r="8"></circle></g>
+        <g class="can">
+          <rect x="28" y="248" width="24" height="12" rx="3"></rect>
+          <circle cx="40" cy="250" r="8"></circle>
+        </g>
       </svg>
       <div class="ctrl">
         <div>
@@ -400,8 +958,20 @@ td:first-child { font-weight: 700; white-space: nowrap; }
           <div class="pf" id="pFormula"></div>
           <div class="meta" id="pMeta"></div>
         </div>
-        <div class="slider"><label for="ph">h</label><input type="range" id="ph" min="1" max="6" step="0.5" value="3"><output id="vh" for="ph">3</output></div>
-        <div class="slider"><label for="pk">k</label><input type="range" id="pk" min="1" max="8" step="0.5" value="4"><output id="vk" for="pk">4</output></div>
+        <div class="slider">
+          <label for="ph">h</label><input type="range" id="ph" min="1" max="6" step="0.5" value="3" /><output
+            id="vh"
+            for="ph"
+            >3</output
+          >
+        </div>
+        <div class="slider">
+          <label for="pk">k</label><input type="range" id="pk" min="1" max="8" step="0.5" value="4" /><output
+            id="vk"
+            for="pk"
+            >4</output
+          >
+        </div>
         <button class="btn-doc" id="pFire" type="button">Skyd granat</button>
         <div class="res" id="pRes" aria-live="polite">Kom over muren, og land på glitchen.</div>
       </div>
@@ -415,15 +985,57 @@ td:first-child { font-weight: 700; white-space: nowrap; }
     </div>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Glitch</th><th>Hvad den gør</th><th>Hvad man lærer</th><th>Dukker op</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Glitch</th>
+            <th>Hvad den gør</th>
+            <th>Hvad man lærer</th>
+            <th>Dukker op</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr><td>Klump</td><td>Står stille på et gitterpunkt</td><td>At aflæse koordinater</td><td><span class="pill">V1</span></td></tr>
-          <tr><td>Marchør</td><td>Går i en lige linje med fast fart</td><td>At finde linjen gennem to punkter og forudsige, hvor den er om lidt</td><td><span class="pill">V1</span></td></tr>
-          <tr><td>Skjoldbærer</td><td>Har skjold på den ene side og kan kun rammes af en linje med negativ hældning</td><td>Hvad fortegnet på a betyder</td><td><span class="pill">V1</span></td></tr>
-          <tr><td>Deler</td><td>Bliver til to, spejlet i y-aksen, når den rammes</td><td>Spejling og symmetri</td><td><span class="pill">V1</span></td></tr>
-          <tr><td>Drone</td><td>Svæver bag en mur i sidebilledet</td><td>Parabler og toppunkt</td><td><span class="pill">V2</span></td></tr>
-          <tr><td>Boss: Tvillingen</td><td>Har to svage punkter, der skal rammes med samme skud</td><td>At finde forskriften ud fra to punkter</td><td><span class="pill b">Boss V1</span></td></tr>
-          <tr><td>Boss: Kurven</td><td>Bevæger sig i en parabelbane. Det svage punkt er toppunktet</td><td>Toppunkt og symmetriakse</td><td><span class="pill b">Boss V2</span></td></tr>
+          <tr>
+            <td>Klump</td>
+            <td>Står stille på et gitterpunkt</td>
+            <td>At aflæse koordinater</td>
+            <td><span class="pill">V1</span></td>
+          </tr>
+          <tr>
+            <td>Marchør</td>
+            <td>Går i en lige linje med fast fart</td>
+            <td>At finde linjen gennem to punkter og forudsige, hvor den er om lidt</td>
+            <td><span class="pill">V1</span></td>
+          </tr>
+          <tr>
+            <td>Skjoldbærer</td>
+            <td>Har skjold på den ene side og kan kun rammes af en linje med negativ hældning</td>
+            <td>Hvad fortegnet på a betyder</td>
+            <td><span class="pill">V1</span></td>
+          </tr>
+          <tr>
+            <td>Deler</td>
+            <td>Bliver til to, spejlet i y-aksen, når den rammes</td>
+            <td>Spejling og symmetri</td>
+            <td><span class="pill">V1</span></td>
+          </tr>
+          <tr>
+            <td>Drone</td>
+            <td>Svæver bag en mur i sidebilledet</td>
+            <td>Parabler og toppunkt</td>
+            <td><span class="pill">V2</span></td>
+          </tr>
+          <tr>
+            <td>Boss: Tvillingen</td>
+            <td>Har to svage punkter, der skal rammes med samme skud</td>
+            <td>At finde forskriften ud fra to punkter</td>
+            <td><span class="pill b">Boss V1</span></td>
+          </tr>
+          <tr>
+            <td>Boss: Kurven</td>
+            <td>Bevæger sig i en parabelbane. Det svage punkt er toppunktet</td>
+            <td>Toppunkt og symmetriakse</td>
+            <td><span class="pill b">Boss V2</span></td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -435,23 +1047,54 @@ td:first-child { font-weight: 700; white-space: nowrap; }
       <h2>Forståelse giver flest point</h2>
     </div>
     <ul class="rules">
-      <li>Hver glitch giver 100 point. Rammer man flere med samme skud, ganges der med antallet. 1 træffer giver 100, 2 giver 400, og 3 giver 900. Det betaler sig at finde linjen gennem flest muligt.</li>
-      <li>Skud er begrænsede. En bølge har præcis det antal skud, man skal bruge, når man spiller perfekt. I de første bølger får man ét ekstra.</li>
-      <li>Der er ingen game over midt i en bølge. Løber man tør for skud, prøver man bølgen igen med det samme. Fejl skal være billige.</li>
+      <li>
+        Hver glitch giver 100 point. Rammer man flere med samme skud, ganges der med antallet. 1 træffer giver 100, 2
+        giver 400, og 3 giver 900. Det betaler sig at finde linjen gennem flest muligt.
+      </li>
+      <li>
+        Skud er begrænsede. En bølge har præcis det antal skud, man skal bruge, når man spiller perfekt. I de første
+        bølger får man ét ekstra.
+      </li>
+      <li>
+        Der er ingen game over midt i en bølge. Løber man tør for skud, prøver man bølgen igen med det samme. Fejl skal
+        være billige.
+      </li>
       <li>Hver bane giver stjerner. ★ for at klare den, ★★ uden ekstra skud, og ★★★ uden hjælp.</li>
     </ul>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Hjælp</th><th>Hvad den gør</th><th>Slået fra</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Hjælp</th>
+            <th>Hvad den gør</th>
+            <th>Slået fra</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr><td>Sigtelinje</td><td>Viser den stiplede linje, før man skyder</td><td><span class="pill">×2 point</span></td></tr>
-          <tr><td>Koordinater</td><td>Viser koordinaterne over hver glitch</td><td><span class="pill">×1,5 point</span></td></tr>
-          <tr><td>Skydere</td><td>Man trækker i a og b i stedet for at skrive tallene</td><td><span class="pill">×1,5 point</span> <span style="color:var(--muted)">(ikke i demoen)</span></td></tr>
+          <tr>
+            <td>Sigtelinje</td>
+            <td>Viser den stiplede linje, før man skyder</td>
+            <td><span class="pill">×2 point</span></td>
+          </tr>
+          <tr>
+            <td>Koordinater</td>
+            <td>Viser koordinaterne over hver glitch</td>
+            <td><span class="pill">×1,5 point</span></td>
+          </tr>
+          <tr>
+            <td>Skydere</td>
+            <td>Man trækker i a og b i stedet for at skrive tallene</td>
+            <td><span class="pill">×1,5 point</span> <span style="color: var(--muted)">(ikke i demoen)</span></td>
+          </tr>
         </tbody>
       </table>
     </div>
-    <div class="prose" style="margin-top:18px">
-      <p>Hjælpen er altid frivillig. En elev, der har svært ved det, kan spille med al hjælp slået til. En stærk elev får flere point ved at slå den fra. På den måde handler topplaceringerne om forståelse og ikke kun om hurtige fingre.</p>
+    <div class="prose" style="margin-top: 18px">
+      <p>
+        Hjælpen er altid frivillig. En elev, der har svært ved det, kan spille med al hjælp slået til. En stærk elev får
+        flere point ved at slå den fra. På den måde handler topplaceringerne om forståelse og ikke kun om hurtige
+        fingre.
+      </p>
     </div>
   </section>
 
@@ -462,17 +1105,45 @@ td:first-child { font-weight: 700; white-space: nowrap; }
     </div>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Verden</th><th>Matematik</th><th>Omfang</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Verden</th>
+            <th>Matematik</th>
+            <th>Omfang</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr><td>1 · Linjebyen</td><td>Koordinater, vandrette og lodrette linjer, hældning (først hele tal, så negative, så brøker), linjen gennem to punkter</td><td>6 baner + boss</td></tr>
-          <tr><td>2 · Parabelbjergene</td><td>Sidebillede. Toppunkt, nulpunkter, hvad a gør ved buen, til sidst <code>y = ax² + bx + c</code></td><td>5 baner + boss</td></tr>
-          <tr><td>3 · Vækstlaboratoriet</td><td>Procent, fremskrivning, lineær vækst mod eksponentiel vækst</td><td>5 baner + boss</td></tr>
-          <tr><td>4 · Finalen</td><td>Alt blandet. Man vælger selv våben til hver bølge</td><td>3 baner + slutboss</td></tr>
+          <tr>
+            <td>1 · Linjebyen</td>
+            <td>
+              Koordinater, vandrette og lodrette linjer, hældning (først hele tal, så negative, så brøker), linjen
+              gennem to punkter
+            </td>
+            <td>6 baner + boss</td>
+          </tr>
+          <tr>
+            <td>2 · Parabelbjergene</td>
+            <td>Sidebillede. Toppunkt, nulpunkter, hvad a gør ved buen, til sidst <code>y = ax² + bx + c</code></td>
+            <td>5 baner + boss</td>
+          </tr>
+          <tr>
+            <td>3 · Vækstlaboratoriet</td>
+            <td>Procent, fremskrivning, lineær vækst mod eksponentiel vækst</td>
+            <td>5 baner + boss</td>
+          </tr>
+          <tr>
+            <td>4 · Finalen</td>
+            <td>Alt blandet. Man vælger selv våben til hver bølge</td>
+            <td>3 baner + slutboss</td>
+          </tr>
         </tbody>
       </table>
     </div>
-    <div class="prose" style="margin-top:18px">
-      <p>En bane er 4–6 bølger og tager 3–5 minutter, så den kan spilles i løbet af en time. Der er også en træningsbane, hvor man kan skyde frit med alle de våben, man har låst op.</p>
+    <div class="prose" style="margin-top: 18px">
+      <p>
+        En bane er 4–6 bølger og tager 3–5 minutter, så den kan spilles i løbet af en time. Der er også en træningsbane,
+        hvor man kan skyde frit med alle de våben, man har låst op.
+      </p>
     </div>
   </section>
 
@@ -485,7 +1156,10 @@ td:first-child { font-weight: 700; white-space: nowrap; }
       <div class="prose">
         <h3>Det første</h3>
         <ul class="plain">
-          <li><b>Klassekode.</b> Man skriver en kode som <span class="mono">9B-4821</span> og et kaldenavn. Der er intet login, ingen e-mail og ingen personoplysninger.</li>
+          <li>
+            <b>Klassekode.</b> Man skriver en kode som <span class="mono">9B-4821</span> og et kaldenavn. Der er intet
+            login, ingen e-mail og ingen personoplysninger.
+          </li>
           <li><b>Ugens udfordring.</b> Alle får præcis de samme bølger, så det er fair at sammenligne.</li>
           <li><b>Klassens top 10</b> for hver bane og for ugens udfordring.</li>
         </ul>
@@ -493,10 +1167,15 @@ td:first-child { font-weight: 700; white-space: nowrap; }
       <div class="prose">
         <h3>Senere</h3>
         <ul class="plain">
-          <li><b>Lærer-overblik</b>, der viser, hvor klassen har det svært, fx at mange misser på negative hældninger.</li>
+          <li>
+            <b>Lærer-overblik</b>, der viser, hvor klassen har det svært, fx at mange misser på negative hældninger.
+          </li>
           <li><b>Duel</b>, hvor to elever får samme bølge på samme tid.</li>
         </ul>
-        <p style="color:var(--muted); font-size:15.5px; margin-top:10px">Pointlisten kræver en lille server, fx Supabase med data i EU. Den bygges til sidst, så spillet kan testes uden.</p>
+        <p style="color: var(--muted); font-size: 15.5px; margin-top: 10px">
+          Pointlisten kræver en lille server, fx Supabase med data i EU. Den bygges til sidst, så spillet kan testes
+          uden.
+        </p>
       </div>
     </div>
   </section>
@@ -510,8 +1189,14 @@ td:first-child { font-weight: 700; white-space: nowrap; }
       <ul class="plain">
         <li><b>Three.js</b> til 3D, skrevet i <b>TypeScript</b> og bygget med <b>Vite</b>.</li>
         <li><b>Low-poly grafik</b>, vi selv laver i kode. Ingen tunge 3D-modeller, så det kører på skolecomputere.</li>
-        <li><b>Danske talformater</b>. Feltet forstår <code>0,5</code>, <code>½</code>, <code>1/2</code> og både <code>-</code> og <code>−</code>.</li>
-        <li><b>Gratis hosting</b> som statisk side på Netlify eller GitHub Pages. Fremskridt gemmes i browseren, indtil vi har en server.</li>
+        <li>
+          <b>Danske talformater</b>. Feltet forstår <code>0,5</code>, <code>½</code>, <code>1/2</code> og både
+          <code>-</code> og <code>−</code>.
+        </li>
+        <li>
+          <b>Gratis hosting</b> som statisk side på Netlify eller GitHub Pages. Fremskridt gemmes i browseren, indtil vi
+          har en server.
+        </li>
       </ul>
     </div>
   </section>
@@ -522,12 +1207,24 @@ td:first-child { font-weight: 700; white-space: nowrap; }
       <h2>I den rækkefølge vi bygger det</h2>
     </div>
     <ol class="plan">
-      <li><div><b>Kernen</b><span>Laser, glitches på gitteret, bølger og point. Demoen øverst er en grov udgave.</span></div></li>
-      <li><div><b>Spilfølelse</b><span>Lyd, eksplosioner, marchører, startmenu og stjerner.</span></div></li>
+      <li>
+        <div>
+          <b>Kernen</b><span>Laser, glitches på gitteret, bølger og point. Demoen øverst er en grov udgave.</span>
+        </div>
+      </li>
+      <li>
+        <div><b>Spilfølelse</b><span>Lyd, eksplosioner, marchører, startmenu og stjerner.</span></div>
+      </li>
       <li class="test"><div>Test med din søn og et par venner. Er det sjovt? Hvor går de i stå?</div></li>
-      <li><div><b>Parabelverdenen</b><span>Sidebillede og granatkaster.</span></div></li>
-      <li><div><b>Kampagne</b><span>Verden 1 og 2 fuldt udbygget, og fremskridt bliver gemt.</span></div></li>
-      <li><div><b>Klassen</b><span>Klassekode, top 10 og ugens udfordring.</span></div></li>
+      <li>
+        <div><b>Parabelverdenen</b><span>Sidebillede og granatkaster.</span></div>
+      </li>
+      <li>
+        <div><b>Kampagne</b><span>Verden 1 og 2 fuldt udbygget, og fremskridt bliver gemt.</span></div>
+      </li>
+      <li>
+        <div><b>Klassen</b><span>Klassekode, top 10 og ugens udfordring.</span></div>
+      </li>
     </ol>
   </section>
 
@@ -537,9 +1234,17 @@ td:first-child { font-weight: 700; white-space: nowrap; }
       <h2>Det skal vi beslutte</h2>
     </div>
     <ol class="qs">
-      <li><b>Tema.</b> Sci-fi med glitches som i demoen, middelalder med katapulter, eller noget helt tredje? Det er en god idé at lade din søn bestemme.</li>
-      <li><b>Udstyr.</b> Spiller klassen på Chromebooks, iPads eller egne computere? Det afgør, om vi skal understøtte touch fra starten.</li>
-      <li><b>Pointliste.</b> Skal klassens top 10 med i den første version, eller er det nok, at det kommer til sidst?</li>
+      <li>
+        <b>Tema.</b> Sci-fi med glitches som i demoen, middelalder med katapulter, eller noget helt tredje? Det er en
+        god idé at lade din søn bestemme.
+      </li>
+      <li>
+        <b>Udstyr.</b> Spiller klassen på Chromebooks, iPads eller egne computere? Det afgør, om vi skal understøtte
+        touch fra starten.
+      </li>
+      <li>
+        <b>Pointliste.</b> Skal klassens top 10 med i den første version, eller er det nok, at det kommer til sidst?
+      </li>
       <li><b>Navn.</b> Grafkanonen er en arbejdstitel.</li>
     </ol>
   </section>
@@ -547,574 +1252,858 @@ td:first-child { font-weight: 700; white-space: nowrap; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-(() => {
-  // ---------- tal og forskrifter ----------
-  const fmtNum = n => {
-    const r = Math.round(n * 100) / 100;
-    if (r === 0) return '0';
-    return (r < 0 ? '−' : '') + String(Math.abs(r)).replace('.', ',');
-  };
-  // med decimalkomma skrives koordinater med semikolon: (2,5; 4)
-  const fmtPoint = (x, y) => Number.isInteger(x) && Number.isInteger(y) ? `(${fmtNum(x)}, ${fmtNum(y)})` : `(${fmtNum(x)}; ${fmtNum(y)})`;
-  const fmtLinear = (a, b) => {
-    if (a === 0) return 'y = ' + fmtNum(b);
-    let s = 'y = ' + (a === 1 ? '' : a === -1 ? '−' : fmtNum(a)) + 'x';
-    if (b > 0) s += ' + ' + fmtNum(b);
-    else if (b < 0) s += ' − ' + fmtNum(-b);
-    return s;
-  };
-  const parseNum = s => {
-    if (s === '' || s === '+') return 1;
-    if (s === '-') return -1;
-    s = s.replace('½', '0.5');
-    if (s.includes('/')) {
-      const [p, q] = s.split('/');
-      const pn = p === '-' ? -1 : p === '' || p === '+' ? 1 : Number(p);
-      return Number(q) ? pn / Number(q) : NaN;
+  ;(() => {
+    // ---------- tal og forskrifter ----------
+    const fmtNum = (n) => {
+      const r = Math.round(n * 100) / 100
+      if (r === 0) return '0'
+      return (r < 0 ? '−' : '') + String(Math.abs(r)).replace('.', ',')
     }
-    return Number(s);
-  };
-  function parseLinear(str) {
-    let s = str.toLowerCase().replace(/\s+/g, '').replace(/[−–]/g, '-').replace(/,/g, '.').replace(/·|\*/g, '');
-    s = s.replace(/^(y|f\(x\))=/, '');
-    let m = s.match(/^([+-]?(?:\d*\.?\d*(?:\/\d+)?|½)?)x([+-](?:\d+\.?\d*|\.\d+))?$/);
-    if (m) {
-      const a = parseNum(m[1]);
-      const b = m[2] ? Number(m[2]) : 0;
-      if (isFinite(a) && isFinite(b)) return { a, b };
+    // med decimalkomma skrives koordinater med semikolon: (2,5; 4)
+    const fmtPoint = (x, y) =>
+      Number.isInteger(x) && Number.isInteger(y) ? `(${fmtNum(x)}, ${fmtNum(y)})` : `(${fmtNum(x)}; ${fmtNum(y)})`
+    const fmtLinear = (a, b) => {
+      if (a === 0) return 'y = ' + fmtNum(b)
+      let s = 'y = ' + (a === 1 ? '' : a === -1 ? '−' : fmtNum(a)) + 'x'
+      if (b > 0) s += ' + ' + fmtNum(b)
+      else if (b < 0) s += ' − ' + fmtNum(-b)
+      return s
     }
-    m = s.match(/^([+-]?(?:\d+\.?\d*|\.\d+))([+-](?:\d*\.?\d*(?:\/\d+)?|½)?)x$/);
-    if (m) {
-      const a = parseNum(m[2]);
-      const b = Number(m[1]);
-      if (isFinite(a) && isFinite(b)) return { a, b };
-    }
-    if (/^[+-]?(\d+\.?\d*|\.\d+)$/.test(s)) return { a: 0, b: Number(s) };
-    return null;
-  }
-
-  // ---------- DOM ----------
-  const $ = id => document.getElementById(id);
-  const stage = $('stage');
-  const ui = {
-    sa: $('sa'), sb: $('sb'), va: $('va'), vb: $('vb'), formula: $('formula'), warn: $('warn'),
-    fin: $('fin'), err: $('err'), fire: $('fire'), tAim: $('tAim'), tCoords: $('tCoords'),
-    wave: $('hudWave'), ammo: $('hudAmmo'), score: $('hudScore'), mult: $('hudMult'),
-    toast: $('toast'), hint: $('hint'), overlay: $('overlay'), ovTitle: $('ovTitle'), ovText: $('ovText'), ovBtn: $('ovBtn')
-  };
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  if (typeof THREE === 'undefined') { showFallback('3D-biblioteket kunne ikke indlæses.'); }
-  else {
-    // vent kort på skrifttyperne, så etiketterne i 3D tegnes med den rigtige font
-    const fontsReady = document.fonts ? document.fonts.ready : Promise.resolve();
-    Promise.race([fontsReady, new Promise(r => setTimeout(r, 1500))]).then(() => {
-      try { initGame(); } catch (e) { console.error(e); showFallback('Din browser kunne ikke starte 3D-visningen.'); }
-    });
-  }
-  initParabola();
-
-  function showFallback(msg) {
-    ui.overlay.hidden = false;
-    ui.ovTitle.textContent = 'Demoen kan ikke køre her';
-    ui.ovText.textContent = msg + ' Resten af spildesignet kan stadig læses nedenfor.';
-    ui.ovBtn.hidden = true;
-  }
-
-  function initGame() {
-    const W = 10;           // banen går fra −10 til 10 på begge akser
-    const LIM = 8;          // glitches står inden for ±8
-    const C = {
-      bg: 0x0b1320, floor: 0x13213a, grid: 0x263a58, gridMain: 0x3a5682, axis: 0x9db8e0,
-      enemy: 0xff6b3d, beam: 0x5ce1ff, aim: 0xffd166, turret: 0x3d5a80
-    };
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    stage.prepend(renderer.domElement);
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(C.bg);
-    scene.fog = new THREE.Fog(C.bg, 38, 70);
-    const camera = new THREE.PerspectiveCamera(42, 4 / 3, 0.1, 200);
-
-    scene.add(new THREE.HemisphereLight(0xd6e4ff, 0x1a2638, 0.75));
-    const sun = new THREE.DirectionalLight(0xffffff, 0.75);
-    sun.position.set(-6, 14, 8);
-    scene.add(sun);
-
-    // matematik (x, y) → verden (x, højde, −y)
-    const toWorld = (x, y, h = 0) => new THREE.Vector3(x, h, -y);
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * W + 3, 2 * W + 3), new THREE.MeshStandardMaterial({ color: C.floor, roughness: 1 }));
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
-    const grid = new THREE.GridHelper(2 * W, 2 * W, C.gridMain, C.grid);
-    grid.position.y = 0.01;
-    scene.add(grid);
-    const axisMat = new THREE.MeshBasicMaterial({ color: C.axis });
-    const xAxis = new THREE.Mesh(new THREE.BoxGeometry(2 * W + 1, 0.03, 0.07), axisMat);
-    xAxis.position.y = 0.02; scene.add(xAxis);
-    const yAxis = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.03, 2 * W + 1), axisMat);
-    yAxis.position.y = 0.02; scene.add(yAxis);
-
-    // kant rundt om banen, som kanonen kører på
-    const rimMat = new THREE.MeshStandardMaterial({ color: 0x1a2a40, roughness: .8 });
-    [[0, -(W + 0.9), 2 * W + 2.2, 0.5], [0, W + 0.9, 2 * W + 2.2, 0.5], [-(W + 0.9), 0, 0.5, 2 * W + 2.2], [W + 0.9, 0, 0.5, 2 * W + 2.2]].forEach(([x, y, w, d]) => {
-      const r = new THREE.Mesh(new THREE.BoxGeometry(w, 0.25, d), rimMat);
-      r.position.copy(toWorld(x, y, 0.12)); scene.add(r);
-    });
-
-    function makeLabel(text, opts = {}) {
-      const size = 64, pad = opts.bg ? 22 : 10;
-      const c = document.createElement('canvas');
-      const ctx = c.getContext('2d');
-      const font = `700 ${size}px "JetBrains Mono", ui-monospace, Menlo, monospace`;
-      ctx.font = font;
-      const w = Math.ceil(ctx.measureText(text).width) + pad * 2, h = size + 26;
-      c.width = w; c.height = h;
-      ctx.font = font;
-      if (opts.bg) {
-        ctx.fillStyle = opts.bg;
-        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(0, 0, w, h, h / 2); ctx.fill(); }
-        else ctx.fillRect(0, 0, w, h);
+    const parseNum = (s) => {
+      if (s === '' || s === '+') return 1
+      if (s === '-') return -1
+      s = s.replace('½', '0.5')
+      if (s.includes('/')) {
+        const [p, q] = s.split('/')
+        const pn = p === '-' ? -1 : p === '' || p === '+' ? 1 : Number(p)
+        return Number(q) ? pn / Number(q) : NaN
       }
-      ctx.fillStyle = opts.color || '#8ea2c0';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(text, w / 2, h / 2 + 3);
-      const tex = new THREE.CanvasTexture(c);
-      tex.minFilter = THREE.LinearFilter;
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-      const hw = opts.height || 0.55;
-      s.scale.set(hw * w / h, hw, 1);
-      return s;
+      return Number(s)
     }
-
-    for (let v = -W; v <= W; v += 2) {
-      if (v === 0) continue;
-      const lx = makeLabel(fmtNum(v)); lx.position.copy(toWorld(v, -0.55, 0.25)); scene.add(lx);
-      const ly = makeLabel(fmtNum(v)); ly.position.copy(toWorld(-0.6, v, 0.25)); scene.add(ly);
-    }
-    const ax = makeLabel('x', { color: '#dce6f4', height: 0.6 }); ax.position.copy(toWorld(W + 0.5, 0.5, 0.3)); scene.add(ax);
-    const ay = makeLabel('y', { color: '#dce6f4', height: 0.6 }); ay.position.copy(toWorld(0.5, W + 0.5, 0.3)); scene.add(ay);
-
-    // kanon
-    const turret = new THREE.Group();
-    const tMat = new THREE.MeshStandardMaterial({ color: C.turret, flatShading: true });
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 0.35, 8), tMat);
-    base.position.y = 0.2; turret.add(base);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.38, 0.55), new THREE.MeshStandardMaterial({ color: 0x5a7fae, flatShading: true }));
-    head.position.y = 0.55; turret.add(head);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.9, 8), new THREE.MeshStandardMaterial({ color: C.beam, emissive: 0x0d4a5a }));
-    barrel.rotation.z = -Math.PI / 2; barrel.position.set(0.6, 0.55, 0); turret.add(barrel);
-    scene.add(turret);
-    const turretTarget = { pos: toWorld(-W - 0.8, 0), rot: 0 };
-    turret.position.copy(turretTarget.pos);
-
-    // sigtelinje
-    const aimMat = new THREE.LineDashedMaterial({ color: C.aim, dashSize: 0.35, gapSize: 0.22 });
-    let aimLine = new THREE.Line(new THREE.BufferGeometry(), aimMat);
-    scene.add(aimLine);
-
-    // stråle
-    const beam = new THREE.Group();
-    const core = new THREE.Mesh(new THREE.BoxGeometry(1, 0.09, 0.09), new THREE.MeshBasicMaterial({ color: 0xeafcff }));
-    const glow = new THREE.Mesh(new THREE.BoxGeometry(1, 0.38, 0.38), new THREE.MeshBasicMaterial({ color: C.beam, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }));
-    beam.add(core, glow);
-    beam.visible = false;
-    scene.add(beam);
-
-    const enemyGeo = new THREE.IcosahedronGeometry(0.42, 0);
-    const ringGeo = new THREE.RingGeometry(0.32, 0.46, 20);
-    const shardGeo = new THREE.TetrahedronGeometry(0.13);
-    const shardMat = new THREE.MeshBasicMaterial({ color: C.enemy });
-
-    const state = {
-      a: 1, b: 0, wave: 1, ammo: 0, score: 0, layout: null, enemies: [], busy: false, shot: null,
-      aim: true, coords: true, particles: [], visible: true, clip: null
-    };
-
-    // ---------- bølger ----------
-    const rnd = arr => arr[Math.floor(Math.random() * arr.length)];
-    const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-    function pointsOnLine(a, b, k, taken) {
-      const cands = [];
-      for (let x = -LIM; x <= LIM; x++) {
-        const y = a * x + b;
-        if (Math.abs(y - Math.round(y)) < 1e-9 && Math.abs(y) <= LIM) cands.push([x, Math.round(y)]);
+    function parseLinear(str) {
+      let s = str.toLowerCase().replace(/\s+/g, '').replace(/[−–]/g, '-').replace(/,/g, '.').replace(/·|\*/g, '')
+      s = s.replace(/^(y|f\(x\))=/, '')
+      let m = s.match(/^([+-]?(?:\d*\.?\d*(?:\/\d+)?|½)?)x([+-](?:\d+\.?\d*|\.\d+))?$/)
+      if (m) {
+        const a = parseNum(m[1])
+        const b = m[2] ? Number(m[2]) : 0
+        if (isFinite(a) && isFinite(b)) return { a, b }
       }
-      shuffle(cands);
-      const out = [];
-      for (const p of cands) {
-        if (out.length >= k) break;
-        if (out.some(q => Math.abs(q[0] - p[0]) < 2)) continue;
-        if (taken.concat(out).some(q => Math.hypot(q[0] - p[0], q[1] - p[1]) < 1.9)) continue;
-        out.push(p);
+      m = s.match(/^([+-]?(?:\d+\.?\d*|\.\d+))([+-](?:\d*\.?\d*(?:\/\d+)?|½)?)x$/)
+      if (m) {
+        const a = parseNum(m[2])
+        const b = Number(m[1])
+        if (isFinite(a) && isFinite(b)) return { a, b }
       }
-      return out.length === k ? out : null;
+      if (/^[+-]?(\d+\.?\d*|\.\d+)$/.test(s)) return { a: 0, b: Number(s) }
+      return null
     }
-    function genLayout(n) {
-      const easy = [1, 2, -1, -2, 3, -3];
-      const hard = [0.5, -0.5, 1.5, -1.5, 0, 2, -2, 3, -3];
-      const spec = n === 1 ? { lines: [3], singles: 1, extra: 1 }
-        : n === 2 ? { lines: [3, 2], singles: 0, extra: 1 }
-        : n === 3 ? { lines: [3, 3], singles: 1, extra: 0 }
-        : { lines: [3, 3, 2], singles: 0, extra: 0 };
-      const pool = n <= 2 ? easy : n === 3 ? easy.concat([0.5, -0.5]) : hard;
-      for (let tries = 0; tries < 300; tries++) {
-        const pts = [], used = [];
-        let ok = true;
-        for (const k of spec.lines) {
-          let got = null;
-          for (let t = 0; t < 40 && !got; t++) {
-            const a = rnd(pool), b = Math.floor(Math.random() * 11) - 5;
-            if (used.includes(a)) continue;
-            got = pointsOnLine(a, b, k, pts);
-            if (got) used.push(a);
-          }
-          if (!got) { ok = false; break; }
-          pts.push(...got);
+
+    // ---------- DOM ----------
+    const $ = (id) => document.getElementById(id)
+    const stage = $('stage')
+    const ui = {
+      sa: $('sa'),
+      sb: $('sb'),
+      va: $('va'),
+      vb: $('vb'),
+      formula: $('formula'),
+      warn: $('warn'),
+      fin: $('fin'),
+      err: $('err'),
+      fire: $('fire'),
+      tAim: $('tAim'),
+      tCoords: $('tCoords'),
+      wave: $('hudWave'),
+      ammo: $('hudAmmo'),
+      score: $('hudScore'),
+      mult: $('hudMult'),
+      toast: $('toast'),
+      hint: $('hint'),
+      overlay: $('overlay'),
+      ovTitle: $('ovTitle'),
+      ovText: $('ovText'),
+      ovBtn: $('ovBtn'),
+    }
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    if (typeof THREE === 'undefined') {
+      showFallback('3D-biblioteket kunne ikke indlæses.')
+    } else {
+      // vent kort på skrifttyperne, så etiketterne i 3D tegnes med den rigtige font
+      const fontsReady = document.fonts ? document.fonts.ready : Promise.resolve()
+      Promise.race([fontsReady, new Promise((r) => setTimeout(r, 1500))]).then(() => {
+        try {
+          initGame()
+        } catch (e) {
+          console.error(e)
+          showFallback('Din browser kunne ikke starte 3D-visningen.')
         }
-        if (!ok) continue;
-        for (let s = 0; s < spec.singles; s++) {
-          let p, t = 0;
-          do { p = [Math.floor(Math.random() * 15) - 7, Math.floor(Math.random() * 15) - 7]; t++; }
-          while (t < 80 && pts.some(q => Math.hypot(q[0] - p[0], q[1] - p[1]) < 2.5));
-          pts.push(p);
+      })
+    }
+    initParabola()
+
+    function showFallback(msg) {
+      ui.overlay.hidden = false
+      ui.ovTitle.textContent = 'Demoen kan ikke køre her'
+      ui.ovText.textContent = msg + ' Resten af spildesignet kan stadig læses nedenfor.'
+      ui.ovBtn.hidden = true
+    }
+
+    function initGame() {
+      const W = 10 // banen går fra −10 til 10 på begge akser
+      const LIM = 8 // glitches står inden for ±8
+      const C = {
+        bg: 0x0b1320,
+        floor: 0x13213a,
+        grid: 0x263a58,
+        gridMain: 0x3a5682,
+        axis: 0x9db8e0,
+        enemy: 0xff6b3d,
+        beam: 0x5ce1ff,
+        aim: 0xffd166,
+        turret: 0x3d5a80,
+      }
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true })
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+      stage.prepend(renderer.domElement)
+
+      const scene = new THREE.Scene()
+      scene.background = new THREE.Color(C.bg)
+      scene.fog = new THREE.Fog(C.bg, 38, 70)
+      const camera = new THREE.PerspectiveCamera(42, 4 / 3, 0.1, 200)
+
+      scene.add(new THREE.HemisphereLight(0xd6e4ff, 0x1a2638, 0.75))
+      const sun = new THREE.DirectionalLight(0xffffff, 0.75)
+      sun.position.set(-6, 14, 8)
+      scene.add(sun)
+
+      // matematik (x, y) → verden (x, højde, −y)
+      const toWorld = (x, y, h = 0) => new THREE.Vector3(x, h, -y)
+
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(2 * W + 3, 2 * W + 3),
+        new THREE.MeshStandardMaterial({ color: C.floor, roughness: 1 }),
+      )
+      floor.rotation.x = -Math.PI / 2
+      scene.add(floor)
+      const grid = new THREE.GridHelper(2 * W, 2 * W, C.gridMain, C.grid)
+      grid.position.y = 0.01
+      scene.add(grid)
+      const axisMat = new THREE.MeshBasicMaterial({ color: C.axis })
+      const xAxis = new THREE.Mesh(new THREE.BoxGeometry(2 * W + 1, 0.03, 0.07), axisMat)
+      xAxis.position.y = 0.02
+      scene.add(xAxis)
+      const yAxis = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.03, 2 * W + 1), axisMat)
+      yAxis.position.y = 0.02
+      scene.add(yAxis)
+
+      // kant rundt om banen, som kanonen kører på
+      const rimMat = new THREE.MeshStandardMaterial({ color: 0x1a2a40, roughness: 0.8 })
+      ;[
+        [0, -(W + 0.9), 2 * W + 2.2, 0.5],
+        [0, W + 0.9, 2 * W + 2.2, 0.5],
+        [-(W + 0.9), 0, 0.5, 2 * W + 2.2],
+        [W + 0.9, 0, 0.5, 2 * W + 2.2],
+      ].forEach(([x, y, w, d]) => {
+        const r = new THREE.Mesh(new THREE.BoxGeometry(w, 0.25, d), rimMat)
+        r.position.copy(toWorld(x, y, 0.12))
+        scene.add(r)
+      })
+
+      function makeLabel(text, opts = {}) {
+        const size = 64,
+          pad = opts.bg ? 22 : 10
+        const c = document.createElement('canvas')
+        const ctx = c.getContext('2d')
+        const font = `700 ${size}px "JetBrains Mono", ui-monospace, Menlo, monospace`
+        ctx.font = font
+        const w = Math.ceil(ctx.measureText(text).width) + pad * 2,
+          h = size + 26
+        c.width = w
+        c.height = h
+        ctx.font = font
+        if (opts.bg) {
+          ctx.fillStyle = opts.bg
+          if (ctx.roundRect) {
+            ctx.beginPath()
+            ctx.roundRect(0, 0, w, h, h / 2)
+            ctx.fill()
+          } else ctx.fillRect(0, 0, w, h)
         }
-        return { pts, ammo: spec.lines.length + spec.singles + spec.extra };
+        ctx.fillStyle = opts.color || '#8ea2c0'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(text, w / 2, h / 2 + 3)
+        const tex = new THREE.CanvasTexture(c)
+        tex.minFilter = THREE.LinearFilter
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }))
+        const hw = opts.height || 0.55
+        s.scale.set((hw * w) / h, hw, 1)
+        return s
       }
-      return { pts: [[-2, -3], [0, 1], [2, 5]], ammo: 2 };
-    }
-    const HINTS = {
-      1: 'Tre glitches står på linje. Kan du ramme dem alle med ét skud?',
-      2: 'To grupper. Hvilken hældning har hver gruppe?',
-      3: 'Nu er der præcis nok skud. Hvert skud skal ramme en hel gruppe.',
-      4: 'Brøker og vandrette linjer. y = 0,5x stiger ½ for hver 1 til højre.'
-    };
 
-    function clearEnemies() {
-      state.enemies.forEach(e => scene.remove(e.group));
-      state.enemies = [];
-    }
-    function spawnEnemies(pts) {
-      clearEnemies();
-      pts.forEach(([x, y], i) => {
-        const group = new THREE.Group();
-        group.position.copy(toWorld(x, y));
-        const mesh = new THREE.Mesh(enemyGeo, new THREE.MeshStandardMaterial({ color: C.enemy, emissive: 0x5a1800, flatShading: true }));
-        mesh.position.y = 0.6;
-        const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: C.enemy, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
-        ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03;
-        const label = makeLabel(fmtPoint(x, y), { color: '#ffe3d6', bg: 'rgba(60,20,8,0.85)', height: 0.5 });
-        label.position.y = 1.35;
-        label.visible = state.coords;
-        group.add(mesh, ring, label);
-        scene.add(group);
-        state.enemies.push({ x, y, group, mesh, label, alive: true, dying: 0, phase: i * 1.3 + Math.random() });
-      });
-    }
-    function startWave(n, retry) {
-      state.wave = n;
-      if (!retry || !state.layout) state.layout = genLayout(n);
-      state.ammo = state.layout.ammo;
-      spawnEnemies(state.layout.pts);
-      ui.hint.textContent = HINTS[Math.min(n, 4)];
-      ui.overlay.hidden = true;
-      updateHud();
-    }
-
-    // ---------- sigte ----------
-    function clipLine(a, b) {
-      let lo = -W, hi = W;
-      if (a === 0) { if (Math.abs(b) > W) return null; }
-      else {
-        const x1 = (-W - b) / a, x2 = (W - b) / a;
-        lo = Math.max(lo, Math.min(x1, x2));
-        hi = Math.min(hi, Math.max(x1, x2));
-        if (lo > hi - 1e-6) return null;
+      for (let v = -W; v <= W; v += 2) {
+        if (v === 0) continue
+        const lx = makeLabel(fmtNum(v))
+        lx.position.copy(toWorld(v, -0.55, 0.25))
+        scene.add(lx)
+        const ly = makeLabel(fmtNum(v))
+        ly.position.copy(toWorld(-0.6, v, 0.25))
+        scene.add(ly)
       }
-      return { xa: lo, xb: hi };
-    }
-    function setFunc(a, b, fromSlider) {
-      state.a = a; state.b = b;
-      if (!fromSlider) { ui.sa.value = a; ui.sb.value = b; }
-      ui.va.textContent = fmtNum(Number(ui.sa.value));
-      ui.vb.textContent = fmtNum(Number(ui.sb.value));
-      ui.formula.textContent = fmtLinear(a, b);
-      updateAim();
-    }
-    function updateAim() {
-      const { a, b } = state;
-      const clip = clipLine(a, b);
-      state.clip = clip;
-      ui.warn.textContent = clip ? '' : 'Linjen går uden for banen.';
-      if (!clip) {
-        aimLine.visible = false;
-        turretTarget.pos = toWorld(-W - 0.8, 0); turretTarget.rot = 0;
-        return;
+      const ax = makeLabel('x', { color: '#dce6f4', height: 0.6 })
+      ax.position.copy(toWorld(W + 0.5, 0.5, 0.3))
+      scene.add(ax)
+      const ay = makeLabel('y', { color: '#dce6f4', height: 0.6 })
+      ay.position.copy(toWorld(0.5, W + 0.5, 0.3))
+      scene.add(ay)
+
+      // kanon
+      const turret = new THREE.Group()
+      const tMat = new THREE.MeshStandardMaterial({ color: C.turret, flatShading: true })
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 0.35, 8), tMat)
+      base.position.y = 0.2
+      turret.add(base)
+      const head = new THREE.Mesh(
+        new THREE.BoxGeometry(0.62, 0.38, 0.55),
+        new THREE.MeshStandardMaterial({ color: 0x5a7fae, flatShading: true }),
+      )
+      head.position.y = 0.55
+      turret.add(head)
+      const barrel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.11, 0.13, 0.9, 8),
+        new THREE.MeshStandardMaterial({ color: C.beam, emissive: 0x0d4a5a }),
+      )
+      barrel.rotation.z = -Math.PI / 2
+      barrel.position.set(0.6, 0.55, 0)
+      turret.add(barrel)
+      scene.add(turret)
+      const turretTarget = { pos: toWorld(-W - 0.8, 0), rot: 0 }
+      turret.position.copy(turretTarget.pos)
+
+      // sigtelinje
+      const aimMat = new THREE.LineDashedMaterial({ color: C.aim, dashSize: 0.35, gapSize: 0.22 })
+      let aimLine = new THREE.Line(new THREE.BufferGeometry(), aimMat)
+      scene.add(aimLine)
+
+      // stråle
+      const beam = new THREE.Group()
+      const core = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 0.09, 0.09),
+        new THREE.MeshBasicMaterial({ color: 0xeafcff }),
+      )
+      const glow = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 0.38, 0.38),
+        new THREE.MeshBasicMaterial({
+          color: C.beam,
+          transparent: true,
+          opacity: 0.3,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      )
+      beam.add(core, glow)
+      beam.visible = false
+      scene.add(beam)
+
+      const enemyGeo = new THREE.IcosahedronGeometry(0.42, 0)
+      const ringGeo = new THREE.RingGeometry(0.32, 0.46, 20)
+      const shardGeo = new THREE.TetrahedronGeometry(0.13)
+      const shardMat = new THREE.MeshBasicMaterial({ color: C.enemy })
+
+      const state = {
+        a: 1,
+        b: 0,
+        wave: 1,
+        ammo: 0,
+        score: 0,
+        layout: null,
+        enemies: [],
+        busy: false,
+        shot: null,
+        aim: true,
+        coords: true,
+        particles: [],
+        visible: true,
+        clip: null,
       }
-      const p1 = toWorld(clip.xa, a * clip.xa + b, 0.6), p2 = toWorld(clip.xb, a * clip.xb + b, 0.6);
-      aimLine.geometry.dispose();
-      aimLine.geometry = new THREE.BufferGeometry().setFromPoints([p1, p2]);
-      aimLine.computeLineDistances();
-      aimLine.visible = state.aim;
-      const len = Math.hypot(1, a), dx = 1 / len, dy = a / len;
-      turretTarget.pos = toWorld(clip.xa - dx * 0.8, a * clip.xa + b - dy * 0.8);
-      turretTarget.rot = Math.atan(a);
-    }
-    const helpMult = () => (state.aim ? 1 : 2) * (state.coords ? 1 : 1.5);
 
-    function updateHud() {
-      ui.wave.textContent = state.wave;
-      ui.ammo.textContent = state.ammo > 0 ? '●'.repeat(state.ammo) : '–';
-      ui.score.textContent = state.score.toLocaleString('da-DK');
-      ui.mult.textContent = '×' + fmtNum(helpMult());
-      ui.fire.disabled = state.busy || state.ammo <= 0 || !ui.overlay.hidden;
-    }
-    let toastTimer;
-    function toast(text) {
-      ui.toast.textContent = text;
-      ui.toast.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => ui.toast.classList.remove('show'), 1500);
-    }
-    function overlay(title, text, btn, fn) {
-      ui.ovTitle.textContent = title; ui.ovText.textContent = text; ui.ovBtn.textContent = btn;
-      ui.ovBtn.onclick = fn; ui.overlay.hidden = false; ui.ovBtn.hidden = false;
-      updateHud();
-      ui.ovBtn.focus({ preventScroll: true });
-    }
-
-    // ---------- skud ----------
-    function fire() {
-      if (state.busy || state.ammo <= 0 || !ui.overlay.hidden) return;
-      if (!state.clip) { toast('Linjen rammer ikke banen'); return; }
-      state.busy = true;
-      state.ammo--;
-      state.shot = { t: 0, a: state.a, b: state.b, xa: state.clip.xa, xb: state.clip.xb, hits: 0 };
-      beam.visible = true;
-      head.scale.set(1.15, 1.15, 1.15);
-      updateHud();
-    }
-    function kill(e) {
-      e.alive = false; e.dying = 0.0001;
-      e.label.visible = false;
-      for (let i = 0; i < 12; i++) {
-        const m = new THREE.Mesh(shardGeo, shardMat);
-        m.position.copy(e.group.position).add(new THREE.Vector3(0, 0.6, 0));
-        const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.9 + 0.3, Math.random() - 0.5).multiplyScalar(7);
-        scene.add(m);
-        state.particles.push({ m, v, life: 0.7 });
+      // ---------- bølger ----------
+      const rnd = (arr) => arr[Math.floor(Math.random() * arr.length)]
+      const shuffle = (a) => {
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[a[i], a[j]] = [a[j], a[i]]
+        }
+        return a
       }
-    }
-    function resolveShot(hits) {
-      if (hits > 0) {
-        const pts = Math.round(100 * hits * hits * helpMult());
-        state.score += pts;
-        toast(hits > 1 ? `+${pts.toLocaleString('da-DK')} · ${hits} på én linje!` : `+${pts.toLocaleString('da-DK')}`);
-      } else toast('Forbi!');
-      state.busy = false;
-      const left = state.enemies.filter(e => e.alive).length;
-      if (left === 0) {
-        const bonus = state.ammo * 250;
-        state.score += bonus;
-        const n = state.wave;
-        setTimeout(() => overlay(`Bølge ${n} klaret`, bonus ? `${state.ammo} skud til overs giver ${bonus} bonuspoint.` : 'Alle skud brugt, og alle glitches ramt.', 'Næste bølge', () => startWave(n + 1)), 650);
-      } else if (state.ammo === 0) {
-        setTimeout(() => overlay('Ikke flere skud', `${left} glitch${left > 1 ? 'es' : ''} tilbage. Kig efter dem, der står på samme linje.`, 'Prøv bølgen igen', () => startWave(state.wave, true)), 650);
+      function pointsOnLine(a, b, k, taken) {
+        const cands = []
+        for (let x = -LIM; x <= LIM; x++) {
+          const y = a * x + b
+          if (Math.abs(y - Math.round(y)) < 1e-9 && Math.abs(y) <= LIM) cands.push([x, Math.round(y)])
+        }
+        shuffle(cands)
+        const out = []
+        for (const p of cands) {
+          if (out.length >= k) break
+          if (out.some((q) => Math.abs(q[0] - p[0]) < 2)) continue
+          if (taken.concat(out).some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 1.9)) continue
+          out.push(p)
+        }
+        return out.length === k ? out : null
       }
-      updateHud();
-    }
-
-    // ---------- styring ----------
-    ui.sa.addEventListener('input', () => setFunc(Number(ui.sa.value), Number(ui.sb.value), true));
-    ui.sb.addEventListener('input', () => setFunc(Number(ui.sa.value), Number(ui.sb.value), true));
-    $('typeForm').addEventListener('submit', ev => {
-      ev.preventDefault();
-      const r = parseLinear(ui.fin.value);
-      if (!r) { ui.err.textContent = 'Det kan jeg ikke læse. Skriv fx y = 2x + 3'; return; }
-      if (Math.abs(r.a) > 20 || Math.abs(r.b) > 50) { ui.err.textContent = 'Tallene er for store til banen.'; return; }
-      ui.err.textContent = '';
-      setFunc(r.a, r.b, false);
-    });
-    ui.fin.addEventListener('input', () => { ui.err.textContent = ''; });
-    ui.fire.addEventListener('click', fire);
-    ui.tAim.addEventListener('change', () => { state.aim = ui.tAim.checked; aimLine.visible = state.aim && !!state.clip; updateHud(); });
-    ui.tCoords.addEventListener('change', () => { state.coords = ui.tCoords.checked; state.enemies.forEach(e => { if (e.alive) e.label.visible = state.coords; }); updateHud(); });
-    document.addEventListener('keydown', ev => {
-      if (ev.code !== 'Space' || !state.visible) return;
-      const t = ev.target;
-      if (t && (t.tagName === 'INPUT' && t.type === 'text' || t.tagName === 'BUTTON' || t.tagName === 'TEXTAREA')) return;
-      ev.preventDefault();
-      fire();
-    });
-
-    // ---------- størrelse og løkke ----------
-    function resize() {
-      const w = stage.clientWidth, h = stage.clientHeight;
-      if (!w || !h) return;
-      renderer.setSize(w, h);
-      camera.aspect = w / h;
-      const dist = 25.5 * Math.max(1, 1.3 / camera.aspect);
-      camera.position.set(0, dist * 0.76, dist * 0.65);
-      camera.lookAt(0, 0, 0.9);
-      camera.updateProjectionMatrix();
-    }
-    new ResizeObserver(resize).observe(stage);
-    resize();
-    new IntersectionObserver(es => { state.visible = es[0].isIntersecting; }).observe(stage);
-
-    let last = performance.now(), time = 0;
-    function tick(now) {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now; time += dt;
-      if (state.visible) {
-        const k = 1 - Math.exp(-dt * 12);
-        turret.position.lerp(turretTarget.pos, k);
-        turret.rotation.y += (turretTarget.rot - turret.rotation.y) * k;
-        head.scale.lerp(new THREE.Vector3(1, 1, 1), k * 0.6);
-
-        state.enemies.forEach(e => {
-          if (e.alive) {
-            if (!reduced) {
-              e.mesh.position.y = 0.6 + Math.sin(time * 2.2 + e.phase) * 0.08;
-              e.mesh.rotation.y += dt * 0.9;
-              e.mesh.rotation.x += dt * 0.4;
+      function genLayout(n) {
+        const easy = [1, 2, -1, -2, 3, -3]
+        const hard = [0.5, -0.5, 1.5, -1.5, 0, 2, -2, 3, -3]
+        const spec =
+          n === 1
+            ? { lines: [3], singles: 1, extra: 1 }
+            : n === 2
+              ? { lines: [3, 2], singles: 0, extra: 1 }
+              : n === 3
+                ? { lines: [3, 3], singles: 1, extra: 0 }
+                : { lines: [3, 3, 2], singles: 0, extra: 0 }
+        const pool = n <= 2 ? easy : n === 3 ? easy.concat([0.5, -0.5]) : hard
+        for (let tries = 0; tries < 300; tries++) {
+          const pts = [],
+            used = []
+          let ok = true
+          for (const k of spec.lines) {
+            let got = null
+            for (let t = 0; t < 40 && !got; t++) {
+              const a = rnd(pool),
+                b = Math.floor(Math.random() * 11) - 5
+              if (used.includes(a)) continue
+              got = pointsOnLine(a, b, k, pts)
+              if (got) used.push(a)
             }
-          } else if (e.dying > 0) {
-            e.dying += dt;
-            const s = 1 + e.dying * 4;
-            e.mesh.scale.set(s, s, s);
-            e.mesh.material.transparent = true;
-            e.mesh.material.opacity = Math.max(0, 1 - e.dying / 0.3);
-            if (e.dying > 0.3) { e.group.visible = false; e.dying = -1; }
+            if (!got) {
+              ok = false
+              break
+            }
+            pts.push(...got)
           }
-        });
-
-        for (let i = state.particles.length - 1; i >= 0; i--) {
-          const p = state.particles[i];
-          p.life -= dt;
-          p.v.y -= 18 * dt;
-          p.m.position.addScaledVector(p.v, dt);
-          p.m.rotation.x += dt * 8;
-          const s = Math.max(0.01, p.life / 0.7);
-          p.m.scale.set(s, s, s);
-          if (p.life <= 0) { scene.remove(p.m); state.particles.splice(i, 1); }
+          if (!ok) continue
+          for (let s = 0; s < spec.singles; s++) {
+            let p,
+              t = 0
+            do {
+              p = [Math.floor(Math.random() * 15) - 7, Math.floor(Math.random() * 15) - 7]
+              t++
+            } while (t < 80 && pts.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 2.5))
+            pts.push(p)
+          }
+          return { pts, ammo: spec.lines.length + spec.singles + spec.extra }
         }
-
-        const sh = state.shot;
-        if (sh) {
-          sh.t += dt;
-          const GROW = 0.45, FADE = 0.3;
-          const g = Math.min(1, sh.t / GROW);
-          const headX = sh.xa + (sh.xb - sh.xa) * g;
-          const p1 = toWorld(sh.xa, sh.a * sh.xa + sh.b, 0.6), p2 = toWorld(headX, sh.a * headX + sh.b, 0.6);
-          const len = p1.distanceTo(p2);
-          beam.position.copy(p1).lerp(p2, 0.5);
-          beam.rotation.y = Math.atan(sh.a);
-          beam.scale.set(Math.max(0.001, len), 1, 1);
-          const fade = sh.t > GROW ? Math.max(0, 1 - (sh.t - GROW) / FADE) : 1;
-          beam.scale.y = beam.scale.z = 0.3 + 0.7 * fade;
-          glow.material.opacity = 0.3 * fade;
-          const norm = Math.hypot(sh.a, 1);
-          state.enemies.forEach(e => {
-            if (e.alive && e.x <= headX + 0.01 && Math.abs(sh.a * e.x - e.y + sh.b) / norm < 0.3) { kill(e); sh.hits++; }
-          });
-          if (sh.t >= GROW + FADE) { beam.visible = false; state.shot = null; resolveShot(sh.hits); }
+        return {
+          pts: [
+            [-2, -3],
+            [0, 1],
+            [2, 5],
+          ],
+          ammo: 2,
         }
-        renderer.render(scene, camera);
       }
-      requestAnimationFrame(tick);
-    }
-
-    setFunc(1, 0, false);
-    startWave(1);
-    requestAnimationFrame(tick);
-  }
-
-  // ---------- granatkaster-skitse (SVG) ----------
-  function initParabola() {
-    const NS = 'http://www.w3.org/2000/svg';
-    const sx = x => 40 + x * 38, sy = y => 260 - y * 30;
-    const P = { h: 3, k: 4, wallX: 4, wallH: 5, target: 8, busy: false };
-    const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); parent.appendChild(n); return n; };
-    const gridG = $('pGrid');
-    for (let x = 0; x <= 12; x++) el('line', { x1: sx(x), y1: sy(0), x2: sx(x), y2: sy(8), class: 'gl' }, gridG);
-    for (let y = 0; y <= 8; y++) el('line', { x1: sx(0), y1: sy(y), x2: sx(12), y2: sy(y), class: 'gl' }, gridG);
-    el('line', { x1: sx(0), y1: sy(0), x2: sx(12.4), y2: sy(0), class: 'ax' }, gridG);
-    el('line', { x1: sx(0), y1: sy(0), x2: sx(0), y2: sy(8.3), class: 'ax' }, gridG);
-    for (let x = 2; x <= 12; x += 2) { const t = el('text', { x: sx(x), y: sy(0) + 18, class: 'tk', 'text-anchor': 'middle' }, gridG); t.textContent = x; }
-    for (let y = 2; y <= 8; y += 2) { const t = el('text', { x: sx(0) - 10, y: sy(y) + 4, class: 'tk', 'text-anchor': 'end' }, gridG); t.textContent = y; }
-
-    const wall = $('pWall'), tgtG = $('pTarget'), curve = $('pCurve'), top = $('pTop'), topLbl = $('pTopLbl'), ball = $('pBall');
-    const tgt = el('polygon', { class: 'tgt' }, tgtG);
-    const ph = $('ph'), pk = $('pk'), vh = $('vh'), vk = $('vk'), pf = $('pFormula'), meta = $('pMeta'), res = $('pRes'), btn = $('pFire');
-    const fy = x => { const a = -P.k / (P.h * P.h); return a * (x - P.h) ** 2 + P.k; };
-
-    function drawScene() {
-      wall.setAttribute('x', sx(P.wallX)); wall.setAttribute('width', 0.4 * 38);
-      wall.setAttribute('y', sy(P.wallH)); wall.setAttribute('height', P.wallH * 30);
-      const cx = sx(P.target), cy = sy(0.45);
-      tgt.setAttribute('points', [[0, -13], [12, 0], [0, 13], [-12, 0]].map(([dx, dy]) => `${cx + dx},${cy + dy}`).join(' '));
-    }
-    function drawCurve() {
-      const a = -P.k / (P.h * P.h);
-      pf.textContent = `y = ${fmtNum(a)}(x − ${fmtNum(P.h)})² + ${fmtNum(P.k)}`;
-      meta.textContent = `Toppunkt ${fmtPoint(P.h, P.k)} · lander i x = ${fmtNum(2 * P.h)}`;
-      const pts = [];
-      for (let x = 0; x <= Math.min(2 * P.h, 12) + 1e-9; x += 0.1) pts.push(`${sx(x).toFixed(1)},${sy(Math.max(0, fy(x))).toFixed(1)}`);
-      curve.setAttribute('points', pts.join(' '));
-      top.setAttribute('cx', sx(P.h)); top.setAttribute('cy', sy(P.k));
-      topLbl.setAttribute('x', sx(P.h) + 9); topLbl.setAttribute('y', sy(P.k) - 8);
-      topLbl.textContent = fmtPoint(P.h, P.k);
-    }
-    function sync() {
-      P.h = Number(ph.value); P.k = Number(pk.value);
-      vh.textContent = fmtNum(P.h); vk.textContent = fmtNum(P.k);
-      drawCurve();
-    }
-    function newLayout() {
-      for (let t = 0; t < 100; t++) {
-        const wallX = 2 + Math.floor(Math.random() * 4), wallH = 3 + Math.floor(Math.random() * 3);
-        const target = wallX + 2 + Math.floor(Math.random() * (11 - wallX - 1));
-        if (target > 11) continue;
-        const h = target / 2, k = 8, a = -k / (h * h);
-        const y1 = a * (wallX - h) ** 2 + k, y2 = a * (wallX + 0.4 - h) ** 2 + k;
-        if (Math.min(y1, y2) >= wallH + 0.3) { Object.assign(P, { wallX, wallH, target }); return; }
+      const HINTS = {
+        1: 'Tre glitches står på linje. Kan du ramme dem alle med ét skud?',
+        2: 'To grupper. Hvilken hældning har hver gruppe?',
+        3: 'Nu er der præcis nok skud. Hvert skud skal ramme en hel gruppe.',
+        4: 'Brøker og vandrette linjer. y = 0,5x stiger ½ for hver 1 til højre.',
       }
-    }
-    btn.addEventListener('click', () => {
-      if (P.busy) return;
-      P.busy = true; btn.disabled = true;
-      const land = 2 * P.h;
-      let stopX = Math.min(land, 12.4), blocked = false;
-      if (land > P.wallX) {
-        if (fy(P.wallX) < P.wallH) { stopX = P.wallX; blocked = true; }
-        else if (fy(P.wallX + 0.4) < P.wallH) { stopX = P.wallX + 0.4; blocked = true; }
+
+      function clearEnemies() {
+        state.enemies.forEach((e) => scene.remove(e.group))
+        state.enemies = []
       }
-      const hit = !blocked && Math.abs(land - P.target) <= 0.5;
-      ball.hidden = false;
-      const dur = reduced ? 1 : 900;
-      const t0 = performance.now();
-      const step = now => {
-        const u = Math.min(1, (now - t0) / dur);
-        const x = stopX * u;
-        ball.setAttribute('cx', sx(x)); ball.setAttribute('cy', sy(Math.max(0, fy(x))));
-        if (u < 1) { requestAnimationFrame(step); return; }
-        if (blocked) { res.textContent = `Ramte muren. Buen er for lav ved x = ${fmtNum(P.wallX)}.`; res.className = 'res bad'; }
-        else if (hit) { res.textContent = 'Fuldtræffer! En ny glitch dukker op.'; res.className = 'res ok'; }
-        else { res.textContent = `Forbi. Granaten landede i x = ${fmtNum(land)}, og glitchen står i x = ${P.target}.`; res.className = 'res bad'; }
-        setTimeout(() => {
-          ball.hidden = true; P.busy = false; btn.disabled = false;
-          if (hit) { newLayout(); drawScene(); }
-        }, hit ? 900 : 400);
-      };
-      requestAnimationFrame(step);
-    });
-    ph.addEventListener('input', sync);
-    pk.addEventListener('input', sync);
-    drawScene(); sync();
-  }
-})();
+      function spawnEnemies(pts) {
+        clearEnemies()
+        pts.forEach(([x, y], i) => {
+          const group = new THREE.Group()
+          group.position.copy(toWorld(x, y))
+          const mesh = new THREE.Mesh(
+            enemyGeo,
+            new THREE.MeshStandardMaterial({ color: C.enemy, emissive: 0x5a1800, flatShading: true }),
+          )
+          mesh.position.y = 0.6
+          const ring = new THREE.Mesh(
+            ringGeo,
+            new THREE.MeshBasicMaterial({ color: C.enemy, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
+          )
+          ring.rotation.x = -Math.PI / 2
+          ring.position.y = 0.03
+          const label = makeLabel(fmtPoint(x, y), { color: '#ffe3d6', bg: 'rgba(60,20,8,0.85)', height: 0.5 })
+          label.position.y = 1.35
+          label.visible = state.coords
+          group.add(mesh, ring, label)
+          scene.add(group)
+          state.enemies.push({ x, y, group, mesh, label, alive: true, dying: 0, phase: i * 1.3 + Math.random() })
+        })
+      }
+      function startWave(n, retry) {
+        state.wave = n
+        if (!retry || !state.layout) state.layout = genLayout(n)
+        state.ammo = state.layout.ammo
+        spawnEnemies(state.layout.pts)
+        ui.hint.textContent = HINTS[Math.min(n, 4)]
+        ui.overlay.hidden = true
+        updateHud()
+      }
+
+      // ---------- sigte ----------
+      function clipLine(a, b) {
+        let lo = -W,
+          hi = W
+        if (a === 0) {
+          if (Math.abs(b) > W) return null
+        } else {
+          const x1 = (-W - b) / a,
+            x2 = (W - b) / a
+          lo = Math.max(lo, Math.min(x1, x2))
+          hi = Math.min(hi, Math.max(x1, x2))
+          if (lo > hi - 1e-6) return null
+        }
+        return { xa: lo, xb: hi }
+      }
+      function setFunc(a, b, fromSlider) {
+        state.a = a
+        state.b = b
+        if (!fromSlider) {
+          ui.sa.value = a
+          ui.sb.value = b
+        }
+        ui.va.textContent = fmtNum(Number(ui.sa.value))
+        ui.vb.textContent = fmtNum(Number(ui.sb.value))
+        ui.formula.textContent = fmtLinear(a, b)
+        updateAim()
+      }
+      function updateAim() {
+        const { a, b } = state
+        const clip = clipLine(a, b)
+        state.clip = clip
+        ui.warn.textContent = clip ? '' : 'Linjen går uden for banen.'
+        if (!clip) {
+          aimLine.visible = false
+          turretTarget.pos = toWorld(-W - 0.8, 0)
+          turretTarget.rot = 0
+          return
+        }
+        const p1 = toWorld(clip.xa, a * clip.xa + b, 0.6),
+          p2 = toWorld(clip.xb, a * clip.xb + b, 0.6)
+        aimLine.geometry.dispose()
+        aimLine.geometry = new THREE.BufferGeometry().setFromPoints([p1, p2])
+        aimLine.computeLineDistances()
+        aimLine.visible = state.aim
+        const len = Math.hypot(1, a),
+          dx = 1 / len,
+          dy = a / len
+        turretTarget.pos = toWorld(clip.xa - dx * 0.8, a * clip.xa + b - dy * 0.8)
+        turretTarget.rot = Math.atan(a)
+      }
+      const helpMult = () => (state.aim ? 1 : 2) * (state.coords ? 1 : 1.5)
+
+      function updateHud() {
+        ui.wave.textContent = state.wave
+        ui.ammo.textContent = state.ammo > 0 ? '●'.repeat(state.ammo) : '–'
+        ui.score.textContent = state.score.toLocaleString('da-DK')
+        ui.mult.textContent = '×' + fmtNum(helpMult())
+        ui.fire.disabled = state.busy || state.ammo <= 0 || !ui.overlay.hidden
+      }
+      let toastTimer
+      function toast(text) {
+        ui.toast.textContent = text
+        ui.toast.classList.add('show')
+        clearTimeout(toastTimer)
+        toastTimer = setTimeout(() => ui.toast.classList.remove('show'), 1500)
+      }
+      function overlay(title, text, btn, fn) {
+        ui.ovTitle.textContent = title
+        ui.ovText.textContent = text
+        ui.ovBtn.textContent = btn
+        ui.ovBtn.onclick = fn
+        ui.overlay.hidden = false
+        ui.ovBtn.hidden = false
+        updateHud()
+        ui.ovBtn.focus({ preventScroll: true })
+      }
+
+      // ---------- skud ----------
+      function fire() {
+        if (state.busy || state.ammo <= 0 || !ui.overlay.hidden) return
+        if (!state.clip) {
+          toast('Linjen rammer ikke banen')
+          return
+        }
+        state.busy = true
+        state.ammo--
+        state.shot = { t: 0, a: state.a, b: state.b, xa: state.clip.xa, xb: state.clip.xb, hits: 0 }
+        beam.visible = true
+        head.scale.set(1.15, 1.15, 1.15)
+        updateHud()
+      }
+      function kill(e) {
+        e.alive = false
+        e.dying = 0.0001
+        e.label.visible = false
+        for (let i = 0; i < 12; i++) {
+          const m = new THREE.Mesh(shardGeo, shardMat)
+          m.position.copy(e.group.position).add(new THREE.Vector3(0, 0.6, 0))
+          const v = new THREE.Vector3(
+            Math.random() - 0.5,
+            Math.random() * 0.9 + 0.3,
+            Math.random() - 0.5,
+          ).multiplyScalar(7)
+          scene.add(m)
+          state.particles.push({ m, v, life: 0.7 })
+        }
+      }
+      function resolveShot(hits) {
+        if (hits > 0) {
+          const pts = Math.round(100 * hits * hits * helpMult())
+          state.score += pts
+          toast(hits > 1 ? `+${pts.toLocaleString('da-DK')} · ${hits} på én linje!` : `+${pts.toLocaleString('da-DK')}`)
+        } else toast('Forbi!')
+        state.busy = false
+        const left = state.enemies.filter((e) => e.alive).length
+        if (left === 0) {
+          const bonus = state.ammo * 250
+          state.score += bonus
+          const n = state.wave
+          setTimeout(
+            () =>
+              overlay(
+                `Bølge ${n} klaret`,
+                bonus
+                  ? `${state.ammo} skud til overs giver ${bonus} bonuspoint.`
+                  : 'Alle skud brugt, og alle glitches ramt.',
+                'Næste bølge',
+                () => startWave(n + 1),
+              ),
+            650,
+          )
+        } else if (state.ammo === 0) {
+          setTimeout(
+            () =>
+              overlay(
+                'Ikke flere skud',
+                `${left} glitch${left > 1 ? 'es' : ''} tilbage. Kig efter dem, der står på samme linje.`,
+                'Prøv bølgen igen',
+                () => startWave(state.wave, true),
+              ),
+            650,
+          )
+        }
+        updateHud()
+      }
+
+      // ---------- styring ----------
+      ui.sa.addEventListener('input', () => setFunc(Number(ui.sa.value), Number(ui.sb.value), true))
+      ui.sb.addEventListener('input', () => setFunc(Number(ui.sa.value), Number(ui.sb.value), true))
+      $('typeForm').addEventListener('submit', (ev) => {
+        ev.preventDefault()
+        const r = parseLinear(ui.fin.value)
+        if (!r) {
+          ui.err.textContent = 'Det kan jeg ikke læse. Skriv fx y = 2x + 3'
+          return
+        }
+        if (Math.abs(r.a) > 20 || Math.abs(r.b) > 50) {
+          ui.err.textContent = 'Tallene er for store til banen.'
+          return
+        }
+        ui.err.textContent = ''
+        setFunc(r.a, r.b, false)
+      })
+      ui.fin.addEventListener('input', () => {
+        ui.err.textContent = ''
+      })
+      ui.fire.addEventListener('click', fire)
+      ui.tAim.addEventListener('change', () => {
+        state.aim = ui.tAim.checked
+        aimLine.visible = state.aim && !!state.clip
+        updateHud()
+      })
+      ui.tCoords.addEventListener('change', () => {
+        state.coords = ui.tCoords.checked
+        state.enemies.forEach((e) => {
+          if (e.alive) e.label.visible = state.coords
+        })
+        updateHud()
+      })
+      document.addEventListener('keydown', (ev) => {
+        if (ev.code !== 'Space' || !state.visible) return
+        const t = ev.target
+        if (t && ((t.tagName === 'INPUT' && t.type === 'text') || t.tagName === 'BUTTON' || t.tagName === 'TEXTAREA'))
+          return
+        ev.preventDefault()
+        fire()
+      })
+
+      // ---------- størrelse og løkke ----------
+      function resize() {
+        const w = stage.clientWidth,
+          h = stage.clientHeight
+        if (!w || !h) return
+        renderer.setSize(w, h)
+        camera.aspect = w / h
+        const dist = 25.5 * Math.max(1, 1.3 / camera.aspect)
+        camera.position.set(0, dist * 0.76, dist * 0.65)
+        camera.lookAt(0, 0, 0.9)
+        camera.updateProjectionMatrix()
+      }
+      new ResizeObserver(resize).observe(stage)
+      resize()
+      new IntersectionObserver((es) => {
+        state.visible = es[0].isIntersecting
+      }).observe(stage)
+
+      let last = performance.now(),
+        time = 0
+      function tick(now) {
+        const dt = Math.min(0.05, (now - last) / 1000)
+        last = now
+        time += dt
+        if (state.visible) {
+          const k = 1 - Math.exp(-dt * 12)
+          turret.position.lerp(turretTarget.pos, k)
+          turret.rotation.y += (turretTarget.rot - turret.rotation.y) * k
+          head.scale.lerp(new THREE.Vector3(1, 1, 1), k * 0.6)
+
+          state.enemies.forEach((e) => {
+            if (e.alive) {
+              if (!reduced) {
+                e.mesh.position.y = 0.6 + Math.sin(time * 2.2 + e.phase) * 0.08
+                e.mesh.rotation.y += dt * 0.9
+                e.mesh.rotation.x += dt * 0.4
+              }
+            } else if (e.dying > 0) {
+              e.dying += dt
+              const s = 1 + e.dying * 4
+              e.mesh.scale.set(s, s, s)
+              e.mesh.material.transparent = true
+              e.mesh.material.opacity = Math.max(0, 1 - e.dying / 0.3)
+              if (e.dying > 0.3) {
+                e.group.visible = false
+                e.dying = -1
+              }
+            }
+          })
+
+          for (let i = state.particles.length - 1; i >= 0; i--) {
+            const p = state.particles[i]
+            p.life -= dt
+            p.v.y -= 18 * dt
+            p.m.position.addScaledVector(p.v, dt)
+            p.m.rotation.x += dt * 8
+            const s = Math.max(0.01, p.life / 0.7)
+            p.m.scale.set(s, s, s)
+            if (p.life <= 0) {
+              scene.remove(p.m)
+              state.particles.splice(i, 1)
+            }
+          }
+
+          const sh = state.shot
+          if (sh) {
+            sh.t += dt
+            const GROW = 0.45,
+              FADE = 0.3
+            const g = Math.min(1, sh.t / GROW)
+            const headX = sh.xa + (sh.xb - sh.xa) * g
+            const p1 = toWorld(sh.xa, sh.a * sh.xa + sh.b, 0.6),
+              p2 = toWorld(headX, sh.a * headX + sh.b, 0.6)
+            const len = p1.distanceTo(p2)
+            beam.position.copy(p1).lerp(p2, 0.5)
+            beam.rotation.y = Math.atan(sh.a)
+            beam.scale.set(Math.max(0.001, len), 1, 1)
+            const fade = sh.t > GROW ? Math.max(0, 1 - (sh.t - GROW) / FADE) : 1
+            beam.scale.y = beam.scale.z = 0.3 + 0.7 * fade
+            glow.material.opacity = 0.3 * fade
+            const norm = Math.hypot(sh.a, 1)
+            state.enemies.forEach((e) => {
+              if (e.alive && e.x <= headX + 0.01 && Math.abs(sh.a * e.x - e.y + sh.b) / norm < 0.3) {
+                kill(e)
+                sh.hits++
+              }
+            })
+            if (sh.t >= GROW + FADE) {
+              beam.visible = false
+              state.shot = null
+              resolveShot(sh.hits)
+            }
+          }
+          renderer.render(scene, camera)
+        }
+        requestAnimationFrame(tick)
+      }
+
+      setFunc(1, 0, false)
+      startWave(1)
+      requestAnimationFrame(tick)
+    }
+
+    // ---------- granatkaster-skitse (SVG) ----------
+    function initParabola() {
+      const NS = 'http://www.w3.org/2000/svg'
+      const sx = (x) => 40 + x * 38,
+        sy = (y) => 260 - y * 30
+      const P = { h: 3, k: 4, wallX: 4, wallH: 5, target: 8, busy: false }
+      const el = (tag, attrs, parent) => {
+        const n = document.createElementNS(NS, tag)
+        for (const k in attrs) n.setAttribute(k, attrs[k])
+        parent.appendChild(n)
+        return n
+      }
+      const gridG = $('pGrid')
+      for (let x = 0; x <= 12; x++) el('line', { x1: sx(x), y1: sy(0), x2: sx(x), y2: sy(8), class: 'gl' }, gridG)
+      for (let y = 0; y <= 8; y++) el('line', { x1: sx(0), y1: sy(y), x2: sx(12), y2: sy(y), class: 'gl' }, gridG)
+      el('line', { x1: sx(0), y1: sy(0), x2: sx(12.4), y2: sy(0), class: 'ax' }, gridG)
+      el('line', { x1: sx(0), y1: sy(0), x2: sx(0), y2: sy(8.3), class: 'ax' }, gridG)
+      for (let x = 2; x <= 12; x += 2) {
+        const t = el('text', { x: sx(x), y: sy(0) + 18, class: 'tk', 'text-anchor': 'middle' }, gridG)
+        t.textContent = x
+      }
+      for (let y = 2; y <= 8; y += 2) {
+        const t = el('text', { x: sx(0) - 10, y: sy(y) + 4, class: 'tk', 'text-anchor': 'end' }, gridG)
+        t.textContent = y
+      }
+
+      const wall = $('pWall'),
+        tgtG = $('pTarget'),
+        curve = $('pCurve'),
+        top = $('pTop'),
+        topLbl = $('pTopLbl'),
+        ball = $('pBall')
+      const tgt = el('polygon', { class: 'tgt' }, tgtG)
+      const ph = $('ph'),
+        pk = $('pk'),
+        vh = $('vh'),
+        vk = $('vk'),
+        pf = $('pFormula'),
+        meta = $('pMeta'),
+        res = $('pRes'),
+        btn = $('pFire')
+      const fy = (x) => {
+        const a = -P.k / (P.h * P.h)
+        return a * (x - P.h) ** 2 + P.k
+      }
+
+      function drawScene() {
+        wall.setAttribute('x', sx(P.wallX))
+        wall.setAttribute('width', 0.4 * 38)
+        wall.setAttribute('y', sy(P.wallH))
+        wall.setAttribute('height', P.wallH * 30)
+        const cx = sx(P.target),
+          cy = sy(0.45)
+        tgt.setAttribute(
+          'points',
+          [
+            [0, -13],
+            [12, 0],
+            [0, 13],
+            [-12, 0],
+          ]
+            .map(([dx, dy]) => `${cx + dx},${cy + dy}`)
+            .join(' '),
+        )
+      }
+      function drawCurve() {
+        const a = -P.k / (P.h * P.h)
+        pf.textContent = `y = ${fmtNum(a)}(x − ${fmtNum(P.h)})² + ${fmtNum(P.k)}`
+        meta.textContent = `Toppunkt ${fmtPoint(P.h, P.k)} · lander i x = ${fmtNum(2 * P.h)}`
+        const pts = []
+        for (let x = 0; x <= Math.min(2 * P.h, 12) + 1e-9; x += 0.1)
+          pts.push(`${sx(x).toFixed(1)},${sy(Math.max(0, fy(x))).toFixed(1)}`)
+        curve.setAttribute('points', pts.join(' '))
+        top.setAttribute('cx', sx(P.h))
+        top.setAttribute('cy', sy(P.k))
+        topLbl.setAttribute('x', sx(P.h) + 9)
+        topLbl.setAttribute('y', sy(P.k) - 8)
+        topLbl.textContent = fmtPoint(P.h, P.k)
+      }
+      function sync() {
+        P.h = Number(ph.value)
+        P.k = Number(pk.value)
+        vh.textContent = fmtNum(P.h)
+        vk.textContent = fmtNum(P.k)
+        drawCurve()
+      }
+      function newLayout() {
+        for (let t = 0; t < 100; t++) {
+          const wallX = 2 + Math.floor(Math.random() * 4),
+            wallH = 3 + Math.floor(Math.random() * 3)
+          const target = wallX + 2 + Math.floor(Math.random() * (11 - wallX - 1))
+          if (target > 11) continue
+          const h = target / 2,
+            k = 8,
+            a = -k / (h * h)
+          const y1 = a * (wallX - h) ** 2 + k,
+            y2 = a * (wallX + 0.4 - h) ** 2 + k
+          if (Math.min(y1, y2) >= wallH + 0.3) {
+            Object.assign(P, { wallX, wallH, target })
+            return
+          }
+        }
+      }
+      btn.addEventListener('click', () => {
+        if (P.busy) return
+        P.busy = true
+        btn.disabled = true
+        const land = 2 * P.h
+        let stopX = Math.min(land, 12.4),
+          blocked = false
+        if (land > P.wallX) {
+          if (fy(P.wallX) < P.wallH) {
+            stopX = P.wallX
+            blocked = true
+          } else if (fy(P.wallX + 0.4) < P.wallH) {
+            stopX = P.wallX + 0.4
+            blocked = true
+          }
+        }
+        const hit = !blocked && Math.abs(land - P.target) <= 0.5
+        ball.hidden = false
+        const dur = reduced ? 1 : 900
+        const t0 = performance.now()
+        const step = (now) => {
+          const u = Math.min(1, (now - t0) / dur)
+          const x = stopX * u
+          ball.setAttribute('cx', sx(x))
+          ball.setAttribute('cy', sy(Math.max(0, fy(x))))
+          if (u < 1) {
+            requestAnimationFrame(step)
+            return
+          }
+          if (blocked) {
+            res.textContent = `Ramte muren. Buen er for lav ved x = ${fmtNum(P.wallX)}.`
+            res.className = 'res bad'
+          } else if (hit) {
+            res.textContent = 'Fuldtræffer! En ny glitch dukker op.'
+            res.className = 'res ok'
+          } else {
+            res.textContent = `Forbi. Granaten landede i x = ${fmtNum(land)}, og glitchen står i x = ${P.target}.`
+            res.className = 'res bad'
+          }
+          setTimeout(
+            () => {
+              ball.hidden = true
+              P.busy = false
+              btn.disabled = false
+              if (hit) {
+                newLayout()
+                drawScene()
+              }
+            },
+            hit ? 900 : 400,
+          )
+        }
+        requestAnimationFrame(step)
+      })
+      ph.addEventListener('input', sync)
+      pk.addEventListener('input', sync)
+      drawScene()
+      sync()
+    }
+  })()
 </script>

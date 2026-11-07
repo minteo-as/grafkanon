@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from 'three'
 
 export const COLORS = {
   bg: 0x0b1320,
@@ -22,89 +22,89 @@ export const COLORS = {
   wallTop: 0x8796ae,
   ground: 0x1a2a40,
   mountain: 0x16243a,
-};
+}
 
 /** Matematikkens (x, y) ligger på gulvet: x mod højre, y væk fra kameraet. */
-export const toWorld = (x: number, y: number, height = 0): THREE.Vector3 => new THREE.Vector3(x, height, -y);
+export const toWorld = (x: number, y: number, height = 0): THREE.Vector3 => new THREE.Vector3(x, height, -y)
 
 /**
  * Hvor koordinatsystemet står i 3D. Laseren skyder på gulvet (floor), granaten i et lodret
  * sidebillede (side), hvor y peger opad. "lift" flytter væk fra planet: op fra gulvet eller ud mod kameraet.
  */
-export type View = 'floor' | 'side';
+export type View = 'floor' | 'side'
 
 export interface Plane {
-  view: View;
-  toWorld(x: number, y: number, lift?: number): THREE.Vector3;
+  view: View
+  toWorld(x: number, y: number, lift?: number): THREE.Vector3
 }
 
-export const FLOOR: Plane = { view: 'floor', toWorld };
-export const SIDE: Plane = { view: 'side', toWorld: (x, y, lift = 0) => new THREE.Vector3(x, y, lift) };
+export const FLOOR: Plane = { view: 'floor', toWorld }
+export const SIDE: Plane = { view: 'side', toWorld: (x, y, lift = 0) => new THREE.Vector3(x, y, lift) }
 
-export const prefersReducedMotion = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const prefersReducedMotion = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches
 
 export class World {
-  readonly renderer: THREE.WebGLRenderer;
-  readonly scene = new THREE.Scene();
-  readonly camera = new THREE.PerspectiveCamera(42, 4 / 3, 0.1, 200);
-  private basePosition = new THREE.Vector3();
-  private lookTarget = new THREE.Vector3(0, 0, 0.9);
-  private view: View = 'floor';
-  private trauma = 0;
+  readonly renderer: THREE.WebGLRenderer
+  readonly scene = new THREE.Scene()
+  readonly camera = new THREE.PerspectiveCamera(42, 4 / 3, 0.1, 200)
+  private basePosition = new THREE.Vector3()
+  private lookTarget = new THREE.Vector3(0, 0, 0.9)
+  private view: View = 'floor'
+  private trauma = 0
 
   constructor(private container: HTMLElement) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    container.prepend(this.renderer.domElement);
+    this.renderer = new THREE.WebGLRenderer({ antialias: true })
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    container.prepend(this.renderer.domElement)
 
-    this.scene.background = new THREE.Color(COLORS.bg);
-    this.scene.fog = new THREE.Fog(COLORS.bg, 38, 70);
-    this.scene.add(new THREE.HemisphereLight(0xd6e4ff, 0x1a2638, 1.6));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.8);
-    sun.position.set(-6, 14, 8);
-    this.scene.add(sun);
+    this.scene.background = new THREE.Color(COLORS.bg)
+    this.scene.fog = new THREE.Fog(COLORS.bg, 38, 70)
+    this.scene.add(new THREE.HemisphereLight(0xd6e4ff, 0x1a2638, 1.6))
+    const sun = new THREE.DirectionalLight(0xffffff, 1.8)
+    sun.position.set(-6, 14, 8)
+    this.scene.add(sun)
 
-    new ResizeObserver(() => this.resize()).observe(container);
-    this.resize();
+    new ResizeObserver(() => this.resize()).observe(container)
+    this.resize()
   }
 
   setView(view: View): void {
-    this.view = view;
-    this.resize();
+    this.view = view
+    this.resize()
   }
 
   /** Ryster kameraet en smule, fx når en glitch bliver ramt. */
   shake(amount: number): void {
-    if (prefersReducedMotion()) return;
-    this.trauma = Math.min(1, this.trauma + amount);
+    if (prefersReducedMotion()) return
+    this.trauma = Math.min(1, this.trauma + amount)
   }
 
   render(dt: number): void {
-    this.trauma = Math.max(0, this.trauma - dt * 2.5);
-    const s = this.trauma * this.trauma * 0.35;
+    this.trauma = Math.max(0, this.trauma - dt * 2.5)
+    const s = this.trauma * this.trauma * 0.35
     this.camera.position
       .copy(this.basePosition)
-      .add(new THREE.Vector3((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, (Math.random() - 0.5) * s));
-    this.camera.lookAt(this.lookTarget);
-    this.renderer.render(this.scene, this.camera);
+      .add(new THREE.Vector3((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, (Math.random() - 0.5) * s))
+    this.camera.lookAt(this.lookTarget)
+    this.renderer.render(this.scene, this.camera)
   }
 
   private resize(): void {
-    const w = this.container.clientWidth;
-    const h = this.container.clientHeight;
-    if (!w || !h) return;
-    this.renderer.setSize(w, h, false);
-    this.camera.aspect = w / h;
+    const w = this.container.clientWidth
+    const h = this.container.clientHeight
+    if (!w || !h) return
+    this.renderer.setSize(w, h, false)
+    this.camera.aspect = w / h
     // Smalle skærme har brug for, at kameraet trækkes længere tilbage
     if (this.view === 'floor') {
-      const dist = 25.5 * Math.max(1, 1.3 / this.camera.aspect);
-      this.basePosition.set(0, dist * 0.76, dist * 0.65);
-      this.lookTarget.set(0, 0, 0.9);
+      const dist = 25.5 * Math.max(1, 1.3 / this.camera.aspect)
+      this.basePosition.set(0, dist * 0.76, dist * 0.65)
+      this.lookTarget.set(0, 0, 0.9)
     } else {
-      const dist = 23 * Math.max(1, 1.5 / this.camera.aspect);
-      this.basePosition.set(0, 7.5, dist);
-      this.lookTarget.set(0, 5.6, 0);
+      const dist = 23 * Math.max(1, 1.5 / this.camera.aspect)
+      this.basePosition.set(0, 7.5, dist)
+      this.lookTarget.set(0, 5.6, 0)
     }
-    this.camera.updateProjectionMatrix();
+    this.camera.updateProjectionMatrix()
   }
 }

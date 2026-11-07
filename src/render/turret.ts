@@ -1,93 +1,96 @@
-import * as THREE from 'three';
-import type { Path } from '../math/path';
-import { COLORS, FLOOR, type Plane } from './world';
+import * as THREE from 'three'
+import type { Path } from '../math/path'
+import { COLORS, FLOOR, type Plane } from './world'
 
-const BARREL_X = 0.6;
+const BARREL_X = 0.6
 
 /**
  * Kanonen kører hen til det sted, hvor skuddet starter. På gulvet kører den langs kanten og drejer
  * vandret; i sidebilledet står den i venstre nulpunkt og vipper løbet op.
  */
 export class Turret {
-  private group = new THREE.Group();
-  private yaw = new THREE.Group();
-  private pitch = new THREE.Group();
-  private head: THREE.Mesh;
-  private barrel: THREE.Mesh;
-  private plane: Plane = FLOOR;
-  private targetPosition: THREE.Vector3;
-  private targetAngle = 0;
-  private recoil = 0;
+  private group = new THREE.Group()
+  private yaw = new THREE.Group()
+  private pitch = new THREE.Group()
+  private head: THREE.Mesh
+  private barrel: THREE.Mesh
+  private plane: Plane = FLOOR
+  private targetPosition: THREE.Vector3
+  private targetAngle = 0
+  private recoil = 0
 
-  constructor(scene: THREE.Scene, private half: number) {
-    const baseMat = new THREE.MeshStandardMaterial({ color: COLORS.turret, flatShading: true });
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 0.35, 8), baseMat);
-    base.position.y = 0.2;
+  constructor(
+    scene: THREE.Scene,
+    private half: number,
+  ) {
+    const baseMat = new THREE.MeshStandardMaterial({ color: COLORS.turret, flatShading: true })
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 0.35, 8), baseMat)
+    base.position.y = 0.2
     this.head = new THREE.Mesh(
       new THREE.BoxGeometry(0.62, 0.38, 0.55),
       new THREE.MeshStandardMaterial({ color: COLORS.turretHead, flatShading: true }),
-    );
+    )
     this.barrel = new THREE.Mesh(
       new THREE.CylinderGeometry(0.11, 0.13, 0.9, 8),
       new THREE.MeshStandardMaterial({ color: COLORS.beam, emissive: 0x0d4a5a }),
-    );
-    this.barrel.rotation.z = -Math.PI / 2;
-    this.barrel.position.x = BARREL_X;
-    this.pitch.position.y = 0.55;
-    this.pitch.add(this.head, this.barrel);
-    this.yaw.add(base, this.pitch);
-    this.group.add(this.yaw);
-    scene.add(this.group);
+    )
+    this.barrel.rotation.z = -Math.PI / 2
+    this.barrel.position.x = BARREL_X
+    this.pitch.position.y = 0.55
+    this.pitch.add(this.head, this.barrel)
+    this.yaw.add(base, this.pitch)
+    this.group.add(this.yaw)
+    scene.add(this.group)
 
-    this.targetPosition = this.parkedPosition();
-    this.group.position.copy(this.targetPosition);
+    this.targetPosition = this.parkedPosition()
+    this.group.position.copy(this.targetPosition)
   }
 
   setPlane(plane: Plane): void {
-    this.plane = plane;
-    this.yaw.rotation.y = 0;
-    this.pitch.rotation.z = 0;
-    this.park();
-    this.group.position.copy(this.targetPosition);
+    this.plane = plane
+    this.yaw.rotation.y = 0
+    this.pitch.rotation.z = 0
+    this.park()
+    this.group.position.copy(this.targetPosition)
   }
 
   /** Stiller kanonen ved banens start og peger langs den. */
   aimAlong(path: Path | null): void {
     if (!path) {
-      this.park();
-      return;
+      this.park()
+      return
     }
-    const slope = (path.f(path.xa + 1e-3) - path.f(path.xa)) / 1e-3;
+    const slope = (path.f(path.xa + 1e-3) - path.f(path.xa)) / 1e-3
     if (this.plane.view === 'floor') {
-      const len = Math.hypot(1, slope);
-      this.targetPosition = this.plane.toWorld(path.xa - 0.8 / len, path.f(path.xa) - (0.8 * slope) / len);
+      const len = Math.hypot(1, slope)
+      this.targetPosition = this.plane.toWorld(path.xa - 0.8 / len, path.f(path.xa) - (0.8 * slope) / len)
     } else {
-      this.targetPosition = this.plane.toWorld(path.xa - 0.35, 0);
+      this.targetPosition = this.plane.toWorld(path.xa - 0.35, 0)
     }
-    this.targetAngle = Math.atan(slope);
+    this.targetAngle = Math.atan(slope)
   }
 
   kick(): void {
-    this.recoil = 1;
+    this.recoil = 1
   }
 
   update(dt: number): void {
-    const k = 1 - Math.exp(-dt * 12);
-    this.group.position.lerp(this.targetPosition, k);
-    const pivot = this.plane.view === 'floor' ? this.yaw.rotation : this.pitch.rotation;
-    const axis = this.plane.view === 'floor' ? 'y' : 'z';
-    pivot[axis] += (this.targetAngle - pivot[axis]) * k;
-    this.recoil = Math.max(0, this.recoil - dt * 4);
-    this.barrel.position.x = BARREL_X - this.recoil * 0.25;
-    this.head.scale.setScalar(1 + this.recoil * 0.12);
+    const k = 1 - Math.exp(-dt * 12)
+    this.group.position.lerp(this.targetPosition, k)
+    const pivot = this.plane.view === 'floor' ? this.yaw.rotation : this.pitch.rotation
+    const axis = this.plane.view === 'floor' ? 'y' : 'z'
+    pivot[axis] += (this.targetAngle - pivot[axis]) * k
+    this.recoil = Math.max(0, this.recoil - dt * 4)
+    this.barrel.position.x = BARREL_X - this.recoil * 0.25
+    this.head.scale.setScalar(1 + this.recoil * 0.12)
   }
 
   private park(): void {
-    this.targetPosition = this.parkedPosition();
-    this.targetAngle = this.plane.view === 'floor' ? 0 : Math.PI / 4;
+    this.targetPosition = this.parkedPosition()
+    this.targetAngle = this.plane.view === 'floor' ? 0 : Math.PI / 4
   }
 
   private parkedPosition(): THREE.Vector3 {
-    return this.plane.toWorld(-this.half - 0.8, 0);
+    return this.plane.toWorld(-this.half - 0.8, 0)
   }
 }

@@ -13,12 +13,12 @@ npm run dev
 
 Åbn derefter http://localhost:5173.
 
-| Kommando            | Hvad den gør                                 |
-| ------------------- | -------------------------------------------- |
-| `npm run dev`       | Starter udviklingsserveren                   |
-| `npm test`          | Kører testene af matematik, bølger og point  |
-| `npm run typecheck` | Tjekker TypeScript                           |
-| `npm run build`     | Bygger en statisk udgave i `dist/`           |
+| Kommando            | Hvad den gør                                |
+| ------------------- | ------------------------------------------- |
+| `npm run dev`       | Starter udviklingsserveren                  |
+| `npm test`          | Kører testene af matematik, bølger og point |
+| `npm run typecheck` | Tjekker TypeScript                          |
+| `npm run build`     | Bygger en statisk udgave i `dist/`          |
 
 ## Opbygning
 

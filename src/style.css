@@ -129,11 +129,24 @@ body {
   animation: toast 1.5s ease-out forwards;
 }
 @keyframes toast {
-  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.9); }
-  12% { opacity: 1; transform: translate(-50%, 0) scale(1.05); }
-  25% { transform: translate(-50%, 0) scale(1); }
-  80% { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%, -12px); }
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.9);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.05);
+  }
+  25% {
+    transform: translate(-50%, 0) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
 }
 .hint {
   position: absolute;
@@ -176,7 +189,9 @@ body {
 }
 .overlay-stars span {
   color: var(--star-off);
-  transition: color 0.2s, transform 0.3s;
+  transition:
+    color 0.2s,
+    transform 0.3s;
 }
 .overlay-stars span.lit {
   color: var(--aim);
