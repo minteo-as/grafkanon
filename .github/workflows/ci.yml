@@ -19,13 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Hele historikken og alle tags, så versionen på siden kan beregnes (git describe).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Installer
@@ -48,7 +48,7 @@ jobs:
       # upload-artifact pakker selv mappen som en zip. Downloaden indeholder
       # index.html, .htaccess og assets/ direkte i roden – klar til at lægge på webserveren.
       - name: Gem dist som zip
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: grafkanonen-dist-${{ github.sha }}
           path: dist/
