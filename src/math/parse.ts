@@ -1,6 +1,7 @@
 // Læser forskrifter, som eleverne skriver dem.
 // Lineære: "y = 0,5x − 2", "f(x) = 3 + 2x", "y = ½x", "y = x/2".
 // Parabler: "y = −0,5(x − 2)² + 8", "y = -(x+3)^2 + 4", "y = −x² + 2x + 3".
+// Eksponentiel vækst: "y = 5 · 1,2^x", "y = 5·1,2ˣ", "y = 2^x", "y = 3(0,5)^x".
 
 export type ParseResult =
   { ok: true; a: number; b: number } | { ok: false; reason: 'empty' | 'vertical' | 'notLinear' | 'unreadable' }
@@ -127,4 +128,32 @@ export function parseBarrier(input: string): BarrierParseResult {
   if (!m) return { ok: false, reason: 'unreadable' }
   const k = Number(m[2])
   return { ok: true, axis: m[1] as 'x' | 'y', k: k === 0 ? 0 : k }
+}
+
+export type ExpParseResult =
+  { ok: true; a: number; b: number } | { ok: false; reason: 'empty' | 'notExp' | 'unreadable' }
+
+// b står foran med gangetegn eller parentes, a er grundtallet: 5·1.2^x, 3(0.5)^x, 2^x
+const EXP = new RegExp(`^(?:(${NUM})(?:[·*]|(?=\\()))?\\(?(${NUM})\\)?\\^x$`)
+const EXP_B_AFTER = new RegExp(`^\\(?(${NUM})\\)?\\^x[·*](${NUM})$`)
+
+/** Eksponentiel vækst y = b · aˣ. Gangetegnet skal med, så 51,2^x ikke kan misforstås. */
+export function parseExp(input: string): ExpParseResult {
+  let s = input
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[−–—]/g, '-')
+    .replace(/,/g, '.')
+    .replace(/ˣ/g, '^x')
+    .replace(/\^\(x\)/g, '^x')
+  if (!s) return { ok: false, reason: 'empty' }
+  s = s.replace(/^(y|f\(x\))=/, '')
+  if (!s.includes('^x')) return { ok: false, reason: s.includes('x') ? 'notExp' : 'unreadable' }
+  const m = s.match(EXP)
+  const after = m ? null : s.match(EXP_B_AFTER)
+  if (!m && !after) return { ok: false, reason: 'unreadable' }
+  const b = m ? (m[1] ? Number(m[1]) : 1) : Number(after![2])
+  const a = m ? Number(m[2]) : Number(after![1])
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return { ok: false, reason: 'unreadable' }
+  return { ok: true, a, b }
 }

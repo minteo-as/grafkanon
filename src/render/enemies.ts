@@ -75,10 +75,10 @@ export class EnemyLayer {
   private reduced = prefersReducedMotion()
   private showCoordinates = true
   private plane: Plane = FLOOR
-  // Bossernes ekstra dele: Tvillingens krop og bånd, Kurvens bane og krop
+  // Bossernes ekstra dele: Tvillingens og Koloniens krop og bånd, Kurvens bane og krop
   private decor = new THREE.Group()
   private decorDirty = false
-  private twinBodies: THREE.Mesh[] = []
+  private twinBodies: { mesh: THREE.Mesh; baseY: number }[] = []
   private curve: { mesh: THREE.Mesh; points: THREE.Vector3[] } | null = null
 
   constructor(
@@ -274,12 +274,13 @@ export class EnemyLayer {
     this.curve = null
     const alive = enemies.filter((e) => e.alive && e.boss)
 
-    // Tvillingen: et lysende bånd mellem de svage punkter og en stor krop over midten
+    // Tvillingen og Kolonien: et lysende bånd mellem de svage punkter og en stor krop over midten
+    const side = this.plane.view === 'side'
     const links = new Map<number, Enemy[]>()
     for (const e of alive) if (e.link !== undefined) links.set(e.link, [...(links.get(e.link) ?? []), e])
     for (const pair of links.values()) {
       if (pair.length !== 2) continue
-      const [p, q] = pair.map((e) => this.plane.toWorld(e.x, e.y, BODY_HEIGHT))
+      const [p, q] = pair.map((e) => this.plane.toWorld(e.x, e.y, side ? 0 : BODY_HEIGHT))
       const tether = new THREE.Mesh(
         new THREE.BoxGeometry(p.distanceTo(q), 0.06, 0.06),
         new THREE.MeshBasicMaterial({
@@ -290,13 +291,17 @@ export class EnemyLayer {
         }),
       )
       tether.position.copy(p).lerp(q, 0.5)
-      tether.rotation.y = -Math.atan2(q.z - p.z, q.x - p.x)
+      if (side) tether.rotation.z = Math.atan2(q.y - p.y, q.x - p.x)
+      else tether.rotation.y = -Math.atan2(q.z - p.z, q.x - p.x)
       const body = new THREE.Mesh(
         bossBodyGeo,
         new THREE.MeshStandardMaterial({ color: COLORS.bossBody, emissive: COLORS.bossGlow, flatShading: true }),
       )
-      body.position.copy(p).lerp(q, 0.5).setY(TWIN_BODY_HEIGHT)
-      this.twinBodies.push(body)
+      // I sidebilledet svæver kroppen et stykke over båndet, så den ikke dækker de svage punkter
+      body.position.copy(p).lerp(q, 0.5)
+      if (side) body.position.y = Math.max(p.y, q.y) + 2.4
+      else body.position.y = TWIN_BODY_HEIGHT
+      this.twinBodies.push({ mesh: body, baseY: body.position.y })
       this.decor.add(tether, body)
     }
 
@@ -334,9 +339,9 @@ export class EnemyLayer {
   }
 
   private animateDecor(dt: number): void {
-    for (const body of this.twinBodies) {
-      body.rotation.y += dt * 0.8
-      if (!this.reduced) body.position.y = TWIN_BODY_HEIGHT + Math.sin(this.time * 1.5) * 0.2
+    for (const { mesh, baseY } of this.twinBodies) {
+      mesh.rotation.y += dt * 0.8
+      if (!this.reduced) mesh.position.y = baseY + Math.sin(this.time * 1.5) * 0.2
     }
     if (this.curve) {
       // Frem og tilbage langs banen på 5 sekunder; den ligger stille, hvis man har slået bevægelse fra

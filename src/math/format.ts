@@ -49,3 +49,16 @@ export function fmtGeneral(a: number, b: number, c: number): string {
   }
   return s
 }
+
+/** Eksponentiel vækst: y = 5 · 1,2ˣ */
+export function fmtExp(a: number, b: number): string {
+  return `y = ${b === 1 ? '' : fmtNum(b) + ' · '}${fmtNum(a)}ˣ`
+}
+
+/** Hvad der sker for hvert skridt: "+20 % pr. skridt" (eksponentiel) eller "+2 pr. skridt" (lineær). */
+export function fmtGrowth(aim: { kind: 'exp' | 'line'; a: number }): string {
+  const change = aim.kind === 'exp' ? (aim.a - 1) * 100 : aim.a
+  if (Math.abs(change) < 1e-9) return 'Uændret for hvert skridt'
+  const sign = change > 0 ? '+' : '−'
+  return `${sign}${fmtNum(Math.abs(change))}${aim.kind === 'exp' ? ' %' : ''} pr. skridt`
+}

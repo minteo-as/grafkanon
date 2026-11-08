@@ -267,6 +267,14 @@ body {
   white-space: nowrap;
   overflow-x: auto;
 }
+.growth-note {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+.growth-note:empty {
+  display: none;
+}
 .warn {
   font-size: 13px;
   color: var(--aim);

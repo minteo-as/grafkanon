@@ -9,6 +9,7 @@ export interface World {
 export const WORLDS: World[] = [
   { id: 1, name: 'Linjebyen', weapon: 'laser' },
   { id: 2, name: 'Parabelbjergene', weapon: 'grenade' },
+  { id: 3, name: 'Vækstlaboratoriet', weapon: 'rocket' },
 ]
 
 export interface Level {
@@ -38,6 +39,14 @@ const LEFT = { dx: -1, dy: 0 }
 const UP = { dx: 0, dy: 1 }
 
 const ARC_AS = [-0.5, -1, -2]
+
+// Vækstlaboratoriet: vækstfaktorer, startværdier og hældninger for lineær vækst
+const GROW = [1.5, 1.25, 1.2, 1.1]
+const DECAY = [0.5, 0.8, 0.75, 0.9]
+const LOW_START = [1, 2, 3, 4]
+const HIGH_START = [6, 7, 8, 9, 10, 11]
+const LIN = [0.5, 1, 1.5, 2, -0.5, -1]
+const LIN_START = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 export const LEVELS: Level[] = [
   {
@@ -571,6 +580,206 @@ export const LEVELS: Level[] = [
         walls: 1,
         boss: { kind: 'curve', phases: 3, values: [-0.5, -1, -2] },
         hint: 'Kurven flyver langs sin egen parabel. Skyd præcis langs dens bane, så rammer du det svage punkt i toppunktet.',
+      },
+    ],
+  },
+  {
+    id: 'vaekst-1',
+    world: 3,
+    name: 'Fordobling',
+    topic: 'y = b · aˣ: startværdi og fremskrivning',
+    waves: [
+      {
+        groups: [{ kind: 'growth', count: 3, as: [2], bs: [1, 2], start: true }],
+        singles: 0,
+        spareShots: 1,
+        hint: 'Raketten starter på y-aksen i y = b og bliver a gange højere for hvert skridt. Dronen på y-aksen viser b.',
+      },
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: [2], bs: [1, 2], start: true },
+          { kind: 'growth', count: 3, as: [2], bs: [0.25, 0.5] },
+        ],
+        singles: 0,
+        spareShots: 1,
+        hint: 'Den anden kurve har ingen drone på y-aksen. Gå baglæns ved at halvere, til du når x = 0. Så har du b.',
+      },
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: [2, 3], bs: [0.25, 0.5, 1] },
+          { kind: 'growth', count: 2, as: [2, 3], bs: [0.25, 0.5, 1, 2] },
+        ],
+        singles: 1,
+        spareShots: 1,
+        hint: 'Gå baglæns til x = 0: når a = 2, halverer du for hvert skridt. Når a = 3, dividerer du med 3.',
+      },
+    ],
+  },
+  {
+    id: 'vaekst-2',
+    world: 3,
+    name: 'Procent',
+    topic: 'Vækst i procent: a = 1 + p/100',
+    waves: [
+      {
+        groups: [{ kind: 'growth', count: 3, as: [1.5, 1.25], bs: [2, 3, 4], start: true }],
+        singles: 0,
+        spareShots: 1,
+        hint: '+50 % pr. skridt betyder, at y ganges med 1,5. Så er a = 1,5.',
+      },
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: [1.2, 1.1, 1.25], bs: LOW_START },
+          { kind: 'growth', count: 2, as: [1.5], bs: [1, 2] },
+        ],
+        singles: 0,
+        spareShots: 1,
+        hint: 'Små procenter vokser langsomt i starten og hurtigt til sidst. Find faktoren ved at dividere en y-værdi med den forrige.',
+      },
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: GROW, bs: LOW_START },
+          { kind: 'growth', count: 3, as: GROW, bs: LOW_START },
+        ],
+        singles: 1,
+        spareShots: 1,
+        hint: 'Hvor mange procent vokser hver kurve med? a = 1,1 betyder +10 % pr. skridt.',
+      },
+    ],
+  },
+  {
+    id: 'vaekst-3',
+    world: 3,
+    name: 'Henfald',
+    topic: 'Fald i procent: a = 1 − p/100',
+    waves: [
+      {
+        groups: [{ kind: 'growth', count: 3, as: [0.5], bs: [8, 10], start: true }],
+        singles: 0,
+        spareShots: 1,
+        hint: 'Når a er mindre end 1, bliver y mindre for hvert skridt. a = 0,5 betyder, at y halveres.',
+      },
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: [0.8, 0.75], bs: HIGH_START, start: true },
+          { kind: 'growth', count: 2, as: [0.5], bs: [6, 8, 10] },
+        ],
+        singles: 0,
+        spareShots: 1,
+        hint: '−20 % pr. skridt betyder, at y ganges med 0,8. Så er a = 0,8.',
+      },
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: DECAY, bs: HIGH_START },
+          { kind: 'growth', count: 3, as: DECAY, bs: HIGH_START },
+        ],
+        singles: 1,
+        spareShots: 1,
+        hint: 'Gå et skridt tilbage ved at dividere med a. Så finder du startværdien b.',
+      },
+    ],
+  },
+  {
+    id: 'vaekst-4',
+    world: 3,
+    name: 'Lineær eller eksponentiel',
+    topic: 'Samme tal eller samme procent hvert skridt',
+    waves: [
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: [1, 2], bs: [1, 2, 3], linear: true, start: true },
+          { kind: 'growth', count: 3, as: [2], bs: [1, 2, 3], start: true },
+        ],
+        singles: 0,
+        spareShots: 1,
+        linear: true,
+        hint: 'Nogle droner vokser med det samme tal hvert skridt (lineært), andre med den samme faktor (eksponentielt). Tryk L for at skifte.',
+      },
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: LIN, bs: LIN_START, linear: true },
+          { kind: 'growth', count: 3, as: [1.5, 2, 0.5, 0.75], bs: [2, 3, 4, 6, 8, 10] },
+        ],
+        singles: 0,
+        spareShots: 1,
+        linear: true,
+        hint: 'Se på forskellene: ens forskelle betyder lineær vækst. Ens forhold betyder eksponentiel vækst.',
+      },
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: LIN, bs: LIN_START, linear: true },
+          { kind: 'growth', count: 3, as: GROW, bs: LOW_START },
+          { kind: 'growth', count: 2, as: LIN, bs: LIN_START, linear: true },
+        ],
+        singles: 0,
+        spareShots: 1,
+        linear: true,
+        hint: 'Tre kurver. Er de lineære eller eksponentielle?',
+      },
+    ],
+  },
+  {
+    id: 'vaekst-blandet',
+    world: 3,
+    name: 'Blandet',
+    topic: 'Alt fra Vækstlaboratoriet på én gang',
+    waves: [
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: GROW, bs: LOW_START },
+          { kind: 'growth', count: 3, as: DECAY, bs: HIGH_START },
+        ],
+        singles: 1,
+        spareShots: 1,
+        linear: true,
+        hint: 'Én kurve vokser, og én falder.',
+      },
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: LIN, bs: LIN_START, linear: true },
+          { kind: 'growth', count: 3, as: [2, 3, 1.5], bs: [1, 2, 3] },
+        ],
+        singles: 1,
+        spareShots: 1,
+        linear: true,
+        hint: 'Lineær eller eksponentiel? Se på forskellene og forholdene.',
+      },
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: GROW, bs: LOW_START },
+          { kind: 'growth', count: 3, as: DECAY, bs: HIGH_START },
+          { kind: 'growth', count: 3, as: LIN, bs: LIN_START, linear: true },
+        ],
+        singles: 0,
+        spareShots: 1,
+        linear: true,
+        hint: 'Tre kurver. Tag dem én ad gangen.',
+      },
+    ],
+  },
+  {
+    id: 'vaekst-boss',
+    world: 3,
+    name: 'Kolonien',
+    topic: 'Boss: find vækstkurven ud fra to punkter',
+    boss: true,
+    waves: [
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: [2, 1.5], bs: [1, 2, 3] },
+          { kind: 'growth', count: 3, as: [0.5, 0.8], bs: HIGH_START },
+        ],
+        singles: 1,
+        spareShots: 0,
+        linear: true,
+        hint: 'Ryd vejen til Kolonien.',
+      },
+      {
+        groups: [],
+        singles: 0,
+        spareShots: 1,
+        boss: { kind: 'colony', phases: 3, values: [2, 1.5, 0.5, 3] },
+        hint: 'Kolonien vokser. Dens to svage punkter står ét skridt fra hinanden på samme vækstkurve og skal rammes med samme raket. Faktoren er a = y₂ : y₁.',
       },
     ],
   },

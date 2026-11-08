@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { ARENA_HALF } from '../game/waves'
 
 export const COLORS = {
   bg: 0x0b1320,
@@ -30,6 +31,9 @@ export const COLORS = {
   bossGlow: 0x5a0a28,
   bossBody: 0x8a2d5a,
   barrier: 0xffd166,
+  rocket: 0x7cf29b,
+  flask: 0x9fd8ff,
+  liquid: 0x3ddc84,
 }
 
 /** Matematikkens (x, y) ligger på gulvet: x mod højre, y væk fra kameraet. */
@@ -48,6 +52,11 @@ export interface Plane {
 
 export const FLOOR: Plane = { view: 'floor', toWorld }
 export const SIDE: Plane = { view: 'side', toWorld: (x, y, lift = 0) => new THREE.Vector3(x, y, lift) }
+/** Vækstlaboratoriet: samme sidebillede, men x er tiden fra 0 til 20, så y-aksen står i venstre kant. */
+export const GROWTH: Plane = {
+  view: 'side',
+  toWorld: (x, y, lift = 0) => new THREE.Vector3(x - ARENA_HALF, y, lift),
+}
 
 export const prefersReducedMotion = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches
 

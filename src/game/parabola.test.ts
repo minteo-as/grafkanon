@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { fmtGeneral, fmtVertex } from '../math/format'
-import { parseBarrier, parseParabola } from '../math/parse'
-import { computePath, roots, type Aim } from '../math/path'
+import { fmtExp, fmtGeneral, fmtGrowth, fmtVertex } from '../math/format'
+import { parseBarrier, parseExp, parseParabola } from '../math/parse'
+import { computeGrowthPath, computePath, roots, type Aim } from '../math/path'
 import { Game } from './game'
 import { LEVELS, weaponOf } from './levels'
 import { mulberry32 } from './rng'
@@ -147,5 +147,40 @@ describe('almindelig form og barrierer', () => {
     expect(parseBarrier('y = −2')).toEqual({ ok: true, axis: 'y', k: -2 })
     expect(parseBarrier('Y=0')).toEqual({ ok: true, axis: 'y', k: 0 })
     expect(parseBarrier('y = 2x')).toEqual({ ok: false, reason: 'unreadable' })
+  })
+})
+
+describe('vækst', () => {
+  it('læser eksponentiel vækst, som elever skriver den', () => {
+    expect(parseExp('y = 5 · 1,2^x')).toEqual({ ok: true, a: 1.2, b: 5 })
+    expect(parseExp('y=5*1.2^x')).toEqual({ ok: true, a: 1.2, b: 5 })
+    expect(parseExp('f(x) = 3 · 0,5ˣ')).toEqual({ ok: true, a: 0.5, b: 3 })
+    expect(parseExp('y = 2^x')).toEqual({ ok: true, a: 2, b: 1 })
+    expect(parseExp('y = 3(1,5)^x')).toEqual({ ok: true, a: 1.5, b: 3 })
+    expect(parseExp('y = 1,1^x · 4')).toEqual({ ok: true, a: 1.1, b: 4 })
+    expect(parseExp('y = 2x + 3')).toEqual({ ok: false, reason: 'notExp' })
+    expect(parseExp('')).toEqual({ ok: false, reason: 'empty' })
+  })
+
+  it('viser forskriften og væksten pr. skridt', () => {
+    expect(fmtExp(1.2, 5)).toBe('y = 5 · 1,2ˣ')
+    expect(fmtExp(2, 1)).toBe('y = 2ˣ')
+    expect(fmtGrowth({ kind: 'exp', a: 1.2 })).toBe('+20 % pr. skridt')
+    expect(fmtGrowth({ kind: 'exp', a: 0.75 })).toBe('−25 % pr. skridt')
+    expect(fmtGrowth({ kind: 'line', a: 2 })).toBe('+2 pr. skridt')
+    expect(fmtGrowth({ kind: 'exp', a: 1 })).toBe('Uændret for hvert skridt')
+  })
+
+  it('flyver fra (0, b), til raketten forlader banen foroven eller rammer jorden', () => {
+    const up = computeGrowthPath({ kind: 'exp', a: 2, b: 1 }, 20, 12)
+    expect(up.ok && up.path.xa).toBe(0)
+    expect(up.ok && up.path.xb).toBeCloseTo(Math.log2(12))
+    const decay = computeGrowthPath({ kind: 'exp', a: 0.5, b: 8 }, 20, 12)
+    expect(decay.ok && decay.path.xb).toBe(20)
+    expect(decay.ok && decay.path.distanceTo(2, 2)).toBeLessThan(1e-6)
+    const down = computeGrowthPath({ kind: 'line', a: -1, b: 5 }, 20, 12)
+    expect(down.ok && [down.path.xb, down.path.end]).toEqual([5, 'ground'])
+    expect(computeGrowthPath({ kind: 'exp', a: 2, b: 0 }, 20, 12)).toEqual({ ok: false, reason: 'startOutside' })
+    expect(computeGrowthPath({ kind: 'exp', a: -2, b: 1 }, 20, 12)).toEqual({ ok: false, reason: 'badFactor' })
   })
 })

@@ -32,7 +32,7 @@ export interface Challenge {
 }
 
 /**
- * Ugens bane skifter mellem verdenerne: ulige uger Linjebyen, lige uger Parabelbjergene.
+ * Ugens bane går på skift mellem verdenerne, én verden pr. uge.
  * Der vælges fire af verdenens almindelige baner, og fra hver én af dens bølger. De står i
  * samme rækkefølge som i kampagnen, så det bliver sværere undervejs.
  */
@@ -40,7 +40,7 @@ export function weeklyChallenge(date: Date = new Date()): Challenge {
   const week = isoWeek(date)
   const seed = Math.imul(week.year * 100 + week.week, 0x9e3779b1) >>> 0
   const rng = mulberry32(seed)
-  const world = WORLDS[(week.week + 1) % WORLDS.length]
+  const world = WORLDS[week.week % WORLDS.length]
   // Almindelig form (abc) styres anderledes end resten af verdenen, så den er ikke med
   const pool = LEVELS.filter((l) => l.world === world.id && !l.boss && !l.form)
   const chosen = shuffle([...pool], rng)

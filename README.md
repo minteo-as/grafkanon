@@ -37,6 +37,7 @@ Banerne er defineret i `src/game/levels.ts` og hører til en verden med sit eget
 
 - **Verden 1 · Linjebyen** (laser, `y = ax + b`): glitches på et gulv, set ovenfra. 6 baner og bossen **Tvillingen**, hvis to svage punkter skal rammes med samme skud. Undervejs kommer marchører, **barrierer** (`x = k` eller `y = k`, der stopper marchører i 8 sekunder), **skjoldbærere** (kan kun rammes, når a har det rigtige fortegn) og **delere** (dukker op igen spejlet i y-aksen).
 - **Verden 2 · Parabelbjergene** (granatkaster, `y = a(x − h)² + k`): droner i et lodret sidebillede. Granaten flyver fra venstre nulpunkt til højre og stopper ved mure, den ikke kommer over. 5 baner, heraf én i almindelig form `y = ax² + bx + c`, og bossen **Kurven**, der besejres ved at skyde langs dens egen parabel.
+- **Verden 3 · Vækstlaboratoriet** (raket, `y = b · aˣ`): droner i et sidebillede, hvor x er tiden fra 0 til 20. Raketten starter på y-aksen i startværdien b og vokser med faktoren a for hvert skridt, til den forlader billedet. Panelet viser væksten i procent pr. skridt. 5 baner: fordobling, procentvis vækst, henfald, lineær mod eksponentiel vækst (man kan skifte til `y = ax + b` med L) og en blandet bane. Bossen **Kolonien** har to svage punkter ét skridt fra hinanden, så a = y₂ : y₁.
 
 En boss åbner først, når verdenens andre baner er klaret med i gennemsnit 1,5 stjerne.
 
@@ -46,7 +47,7 @@ Stjerner: ★ for at klare banen, ★★ uden ekstra skud, ★★★ også uden 
 
 ### Ugens udfordring
 
-Øverst i menuen ligger ugens udfordring (`src/game/challenge.ts`). Den skifter hver mandag og bruger ulige uger Linjebyen og lige uger Parabelbjergene. Der vælges fire af verdenens almindelige baner og én bølge fra hver. Bølgerne laves med et seed ud fra ISO-ugenummeret, så alle elever får præcis de samme bølger hele ugen, også hvis de prøver en bølge igen. Den er altid åben, og der er ingen server: hver elev ser sin egen bedste score, og klassen sammenligner selv.
+Øverst i menuen ligger ugens udfordring (`src/game/challenge.ts`). Den skifter hver mandag og går på skift mellem verdenerne. Der vælges fire af verdenens almindelige baner og én bølge fra hver. Bølgerne laves med et seed ud fra ISO-ugenummeret, så alle elever får præcis de samme bølger hele ugen, også hvis de prøver en bølge igen. Den er altid åben, og der er ingen server: hver elev ser sin egen bedste score, og klassen sammenligner selv.
 
 ## CI
 

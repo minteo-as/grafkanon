@@ -39,7 +39,8 @@ function autoplayWave(game: Game, solution: Aim[]): void {
 }
 
 describe('hele kampagnen', () => {
-  it('har to verdener med en boss til sidst i hver', () => {
+  it('har tre verdener med en boss til sidst i hver', () => {
+    expect(WORLDS.map((w) => w.weapon)).toEqual(['laser', 'grenade', 'rocket'])
     for (const world of WORLDS) {
       const levels = LEVELS.filter((l) => l.world === world.id)
       expect(levels.length).toBeGreaterThanOrEqual(6)
@@ -54,7 +55,7 @@ describe('hele kampagnen', () => {
       for (const level of LEVELS) {
         for (const spec of level.waves) {
           const layout = generateWave(spec, rng, weaponOf(level))
-          expect(isSolvable(layout), `${level.id} seed ${seed}`).toBe(true)
+          expect(isSolvable(layout, weaponOf(level)), `${level.id} seed ${seed}`).toBe(true)
           expect(layout.solution.length).toBeLessThanOrEqual(layout.ammo)
         }
       }
@@ -249,5 +250,57 @@ describe('ugens udfordring', () => {
       })
       expect(game.levelResult).not.toBeNull()
     }
+  })
+})
+
+describe('Kolonien', () => {
+  const boss = levelById('vaekst-boss')
+
+  function bossWave(seed: number) {
+    const { game, solutions } = startKnown(boss, seed)
+    autoplayWave(game, solutions[0])
+    game.nextWave()
+    return game
+  }
+
+  it('har to svage punkter ét skridt fra hinanden på samme vækstkurve', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const pair = bossWave(seed).enemies.filter((e) => e.alive && e.boss)
+      expect(pair.length).toBe(2)
+      expect(Math.abs(pair[0].x - pair[1].x)).toBe(1)
+    }
+  })
+
+  it('besejres ved at finde a = y₂ : y₁ og b tre gange', () => {
+    const game = bossWave(4)
+    const outcomes: (string | null)[] = []
+    for (let i = 0; i < 3; i++) {
+      const [p, q] = game.enemies.filter((e) => e.alive && e.boss).sort((m, n) => m.x - n.x)
+      const a = q.y / p.y
+      // Ét punkt alene skader den ikke
+      game.setAim({ kind: 'exp', a: 1, b: p.y })
+      if (i === 0) {
+        expect(game.fire()!.hits.some((e) => e.boss)).toBe(false)
+        game.completeShot()
+      }
+      game.setAim({ kind: 'exp', a, b: p.y / a ** p.x })
+      game.fire()
+      outcomes.push(game.completeShot().boss)
+    }
+    expect(outcomes).toEqual(['hurt', 'hurt', 'defeated'])
+  })
+})
+
+describe('raketten', () => {
+  it('starter på y-aksen og skyder i sit eget koordinatsystem', () => {
+    const game = new Game(1)
+    game.startLevel(levelById('vaekst-1'))
+    expect(game.weapon).toBe('rocket')
+    expect(game.aim).toEqual({ kind: 'exp', a: 2, b: 1 })
+    const r = game.path
+    expect(r.ok && r.path.xa).toBe(0)
+    // Fra raketten tilbage til laseren nulstilles sigtet
+    game.startLevel(LEVELS[0])
+    expect(game.aim.kind).toBe('line')
   })
 })

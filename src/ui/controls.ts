@@ -1,8 +1,8 @@
 import type { Barrier } from '../game/game'
 import type { Help } from '../game/scoring'
 import type { Weapon } from '../game/waves'
-import { fmtGeneral, fmtLinear, fmtNum, fmtVertex } from '../math/format'
-import { parseBarrier, parseLinear, parseParabola } from '../math/parse'
+import { fmtExp, fmtGeneral, fmtGrowth, fmtLinear, fmtNum, fmtVertex } from '../math/format'
+import { parseBarrier, parseExp, parseLinear, parseParabola } from '../math/parse'
 import type { Aim, PathProblem } from '../math/path'
 
 export interface ControlsCallbacks {
@@ -17,8 +17,12 @@ export interface ControlsCallbacks {
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 
-/** Hvordan der sigtes: laserens linje, granaten i toppunktsform eller almindelig form, eller en barriere. */
-type Mode = 'laser' | 'vertex' | 'general' | 'barrier'
+/**
+ * Hvordan der sigtes: laserens linje, granaten i toppunktsform eller almindelig form, en barriere,
+ * eller raketten med eksponentiel (exp) eller lineær vækst (growthLine).
+ */
+type Mode = 'laser' | 'vertex' | 'general' | 'barrier' | 'exp' | 'growthLine'
+const isGrowth = (mode: Mode) => mode === 'exp' || mode === 'growthLine'
 type Key = 'a' | 'b' | 'c' | 'h' | 'k'
 type Values = Record<Key, number>
 
@@ -43,6 +47,15 @@ const PARSE_ERRORS: Record<Mode, Record<string, string>> = {
     empty: 'Skriv x = k eller y = k, fx y = −3',
     unreadable: 'En barriere er en lodret (x = 3) eller vandret (y = −2) linje.',
   },
+  exp: {
+    empty: 'Skriv en forskrift, fx y = 5 · 1,2^x',
+    notExp: 'Raketten skal bruge eksponentiel vækst med x oppe i potensen. Skriv fx y = 5 · 1,2^x',
+    unreadable: 'Det kan jeg ikke læse. Skriv fx y = 5 · 1,2^x (husk gangetegnet)',
+  },
+  growthLine: {
+    empty: 'Skriv en forskrift, fx y = 2x + 3 eller y = 5 · 1,2^x',
+    unreadable: 'Det kan jeg ikke læse. Skriv fx y = 2x + 3 eller y = 5 · 1,2^x',
+  },
 }
 
 const PATH_WARNINGS: Record<PathProblem, string> = {
@@ -50,6 +63,8 @@ const PATH_WARNINGS: Record<PathProblem, string> = {
   opensUp: 'a skal være negativ, så buen vender nedad.',
   belowGround: 'Toppunktet skal ligge over jorden.',
   landsOutside: 'Buen lander uden for banen. Gør den smallere eller lavere.',
+  startOutside: 'Raketten starter i y = b på y-aksen. b skal være mellem 0 og 12.',
+  badFactor: 'Vækstfaktoren a skal være større end 0.',
 }
 
 interface Param {
@@ -78,6 +93,14 @@ const PARAMS: Record<Mode, Param[]> = {
     { key: 'c', min: -30, max: 12, step: 0.5, keys: ['ArrowDown', 'ArrowUp'] },
   ],
   barrier: [{ key: 'k', min: -9, max: 9, step: 1, keys: ['ArrowDown', 'ArrowUp'] }],
+  exp: [
+    { key: 'a', min: 0.5, max: 3, step: 0.05, keys: ['ArrowLeft', 'ArrowRight'] },
+    { key: 'b', min: 0.25, max: 12, step: 0.25, keys: ['ArrowDown', 'ArrowUp'] },
+  ],
+  growthLine: [
+    { key: 'a', min: -3, max: 3, step: 0.25, keys: ['ArrowLeft', 'ArrowRight'] },
+    { key: 'b', min: 0.25, max: 12, step: 0.25, keys: ['ArrowDown', 'ArrowUp'] },
+  ],
 }
 
 const KEY_HINTS: Record<Mode, string> = {
@@ -87,6 +110,8 @@ const KEY_HINTS: Record<Mode, string> = {
   general:
     '<kbd>←</kbd><kbd>→</kbd> ændrer b · <kbd>↑</kbd><kbd>↓</kbd> ændrer c · <kbd>Shift</kbd>+<kbd>↑</kbd><kbd>↓</kbd> ændrer a',
   barrier: '<kbd>X</kbd>/<kbd>Y</kbd> vælger retning · <kbd>↑</kbd><kbd>↓</kbd> ændrer k',
+  exp: '<kbd>←</kbd><kbd>→</kbd> ændrer a · <kbd>↑</kbd><kbd>↓</kbd> ændrer b',
+  growthLine: '<kbd>←</kbd><kbd>→</kbd> ændrer a · <kbd>↑</kbd><kbd>↓</kbd> ændrer b',
 }
 
 const PLACEHOLDERS: Record<Mode, string> = {
@@ -94,17 +119,22 @@ const PLACEHOLDERS: Record<Mode, string> = {
   vertex: 'y = −(x − 2)² + 9',
   general: 'y = −x² + 4x + 5',
   barrier: 'y = −3',
+  exp: 'y = 5 · 1,2^x',
+  growthLine: 'y = 2x + 3',
 }
 
 const tidy = (v: number) => Math.round(v * 1e9) / 1e9 || 0
 
 const valuesOf = (aim: Aim): Values =>
-  aim.kind === 'line'
-    ? { a: aim.a, b: aim.b, c: 0, h: 0, k: 0 }
-    : { a: aim.a, h: aim.h, k: aim.k, b: tidy(-2 * aim.a * aim.h), c: tidy(aim.a * aim.h * aim.h + aim.k) }
+  aim.kind === 'parabola'
+    ? { a: aim.a, h: aim.h, k: aim.k, b: tidy(-2 * aim.a * aim.h), c: tidy(aim.a * aim.h * aim.h + aim.k) }
+    : { a: aim.a, b: aim.b, c: 0, h: 0, k: 0 }
+
+const snap = (v: number, p: Param) => Math.min(p.max, Math.max(p.min, Math.round(v / p.step) * p.step))
 
 function aimOf(mode: Mode, v: Values): Aim {
-  if (mode === 'laser') return { kind: 'line', a: v.a, b: v.b }
+  if (mode === 'laser' || mode === 'growthLine') return { kind: 'line', a: v.a, b: v.b }
+  if (mode === 'exp') return { kind: 'exp', a: v.a, b: v.b }
   if (mode === 'vertex') return { kind: 'parabola', a: v.a, h: v.h, k: v.k }
   // Almindelig form omregnes til toppunktsform: h = −b/(2a), k = c − b²/(4a)
   return { kind: 'parabola', a: v.a, h: tidy(-v.b / (2 * v.a)), k: tidy(v.c - (v.b * v.b) / (4 * v.a)) }
@@ -129,6 +159,8 @@ export class Controls {
   private barrierTab = $<HTMLButtonElement>('toolBarrier')
   private barrierCount = $('barrierCount')
   private axisRow = $('barrierAxis')
+  private growthTools = $('growthTools')
+  private growthNote = $('growthNote')
   private aimMode: Mode = 'laser'
   private mode: Mode = 'laser'
   private locked: Partial<Values> = {}
@@ -159,6 +191,9 @@ export class Controls {
         this.setBarrier({ ...this.barrier, axis: button.dataset.axis as 'x' | 'y' }),
       )
     }
+    for (const button of this.growthTools.querySelectorAll<HTMLButtonElement>('button')) {
+      button.addEventListener('click', () => this.selectGrowth(button.dataset.growth === 'line' ? 'growthLine' : 'exp'))
+    }
 
     document.addEventListener('keydown', (ev) => this.onKey(ev))
     this.setWeapon('laser')
@@ -179,11 +214,21 @@ export class Controls {
 
   /** Sætter våbnet for banen. Låste parametre vises, men kan ikke ændres. */
   setWeapon(weapon: Weapon, opts: { locked?: Partial<Values>; form?: 'vertex' | 'general' } = {}): void {
-    this.aimMode = weapon === 'laser' ? 'laser' : (opts.form ?? 'vertex')
+    this.aimMode = weapon === 'laser' ? 'laser' : weapon === 'rocket' ? 'exp' : (opts.form ?? 'vertex')
     this.locked = opts.locked ?? {}
     this.charges = 0
     this.tools.hidden = true
+    this.growthTools.hidden = true
     this.buildMode(this.aimMode)
+  }
+
+  /** Viser fanerne for eksponentiel og lineær vækst, når bølgen tillader lineær vækst. */
+  setLinearAvailable(available: boolean): void {
+    const show = available && isGrowth(this.aimMode)
+    if (this.growthTools.hidden !== show) return
+    this.growthTools.hidden = !show
+    if (!show && this.aimMode === 'growthLine') this.selectGrowth('exp')
+    else this.buildMode(this.mode)
   }
 
   /** Viser fanen med barrierer, når bølgen har nogen, og hvor mange der er tilbage. */
@@ -201,14 +246,25 @@ export class Controls {
     this.lastAim = aim
     this.lastProblem = problem
     if (this.mode === 'barrier') return
+    // Raketten skifter selv mellem eksponentiel og lineær, fx når man skriver en forskrift
+    if (isGrowth(this.mode)) {
+      const wanted: Mode = aim.kind === 'line' ? 'growthLine' : 'exp'
+      if (wanted !== this.mode) {
+        this.aimMode = wanted
+        return this.buildMode(wanted)
+      }
+    }
     this.current = valuesOf(aim)
     this.refreshRows()
     this.formula.textContent =
       aim.kind === 'line'
         ? fmtLinear(aim.a, aim.b)
-        : this.mode === 'general'
-          ? fmtGeneral(aim.a, this.current.b, this.current.c)
-          : fmtVertex(aim.a, aim.h, aim.k)
+        : aim.kind === 'exp'
+          ? fmtExp(aim.a, aim.b)
+          : this.mode === 'general'
+            ? fmtGeneral(aim.a, this.current.b, this.current.c)
+            : fmtVertex(aim.a, aim.h, aim.k)
+    this.growthNote.textContent = aim.kind !== 'parabola' && isGrowth(this.mode) ? fmtGrowth(aim) : ''
     this.warn.textContent = problem ? PATH_WARNINGS[problem] : ''
   }
 
@@ -224,6 +280,22 @@ export class Controls {
   private selectTool(tool: 'laser' | 'barrier'): void {
     if (tool === 'barrier' && this.charges <= 0) return
     this.buildMode(tool === 'barrier' ? 'barrier' : this.aimMode)
+  }
+
+  /**
+   * Skifter mellem eksponentiel og lineær vækst. Startværdien og første skridt beholdes,
+   * så man kan se, hvordan de to slags vækst skilles ad bagefter.
+   */
+  private selectGrowth(target: 'exp' | 'growthLine'): void {
+    if (target === this.mode || (target === 'growthLine' && this.growthTools.hidden)) return
+    const { a, b } = this.current
+    const firstStep = this.mode === 'exp' ? b * (a - 1) : this.mode === 'growthLine' ? a : 1
+    const [pa] = PARAMS[target]
+    const nextA = tidy(target === 'exp' ? snap(1 + firstStep / b, pa) : snap(firstStep, pa))
+    this.aimMode = target
+    this.lastAim = aimOf(target, { ...this.current, ...this.locked, a: nextA, b })
+    this.buildMode(target)
+    this.cb.onAim(this.lastAim)
   }
 
   private buildMode(mode: Mode): void {
@@ -252,6 +324,10 @@ export class Controls {
       }),
     )
     const barrier = mode === 'barrier'
+    for (const button of this.growthTools.querySelectorAll<HTMLButtonElement>('button')) {
+      button.setAttribute('aria-pressed', String((button.dataset.growth === 'line') === (mode === 'growthLine')))
+    }
+    this.growthNote.textContent = ''
     this.laserTab.setAttribute('aria-pressed', String(!barrier))
     this.barrierTab.setAttribute('aria-pressed', String(barrier))
     this.axisRow.hidden = !barrier
@@ -259,6 +335,8 @@ export class Controls {
     this.fireButton.classList.toggle('barrier', barrier)
     this.keysHint.innerHTML = `<kbd>Mellemrum</kbd> ${barrier ? 'sætter barrieren' : 'skyder'} · ${KEY_HINTS[mode]}${
       this.tools.hidden ? '' : ' · <kbd>B</kbd> skifter mellem laser og barriere'
+    }${
+      this.growthTools.hidden ? '' : ' · <kbd>L</kbd> skifter mellem eksponentiel og lineær'
     } · <kbd>M</kbd> lyd · <kbd>Esc</kbd> menu`
     this.input.placeholder = PLACEHOLDERS[mode]
     this.input.value = ''
@@ -307,6 +385,19 @@ export class Controls {
       this.error.textContent = ''
       return this.setBarrier(r)
     }
+    if (isGrowth(this.mode)) {
+      const exp = parseExp(this.input.value)
+      const line = exp.ok || this.growthTools.hidden ? null : parseLinear(this.input.value)
+      if (line?.ok) {
+        if (Math.abs(line.a) > 20 || Math.abs(line.b) > 50) return tooBig()
+        this.error.textContent = ''
+        return this.cb.onAim({ kind: 'line', a: line.a, b: line.b })
+      }
+      if (!exp.ok) return fail(exp.reason)
+      if (exp.a > 20 || exp.b > 50) return tooBig()
+      this.error.textContent = ''
+      return this.cb.onAim({ kind: 'exp', a: exp.a, b: exp.b })
+    }
     if (this.mode === 'laser') {
       const r = parseLinear(this.input.value)
       if (!r.ok) return fail(r.reason)
@@ -344,6 +435,9 @@ export class Controls {
     }
     if (ev.code === 'KeyM') return this.cb.onToggleSound()
     if (ev.code === 'KeyB' && !this.tools.hidden) return this.selectTool(this.mode === 'barrier' ? 'laser' : 'barrier')
+    if (ev.code === 'KeyL' && !this.growthTools.hidden) {
+      return this.selectGrowth(this.mode === 'growthLine' ? 'exp' : 'growthLine')
+    }
     if (this.mode === 'barrier' && (ev.code === 'KeyX' || ev.code === 'KeyY')) {
       return this.setBarrier({ ...this.barrier, axis: ev.code === 'KeyX' ? 'x' : 'y' })
     }
@@ -361,7 +455,6 @@ export class Controls {
     if (!param) return
     ev.preventDefault()
     const dir = ev.code === param.keys[1] ? 1 : -1
-    const next = Math.round((this.current[param.key] + dir * param.step) / param.step) * param.step
-    this.emit({ ...this.current, [param.key]: Math.min(param.max, Math.max(param.min, next)) })
+    this.emit({ ...this.current, [param.key]: tidy(snap(this.current[param.key] + dir * param.step, param)) })
   }
 }

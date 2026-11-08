@@ -14,7 +14,7 @@ import { EnemyLayer } from './render/enemies'
 import { Grenade } from './render/grenade'
 import { Turret } from './render/turret'
 import { WallLayer } from './render/walls'
-import { COLORS, FLOOR, SIDE, World } from './render/world'
+import { COLORS, FLOOR, GROWTH, SIDE, World, type Plane } from './render/world'
 import { Controls } from './ui/controls'
 import { fmtScore, Hud } from './ui/hud'
 import { fmtNum } from './math/format'
@@ -52,8 +52,14 @@ async function main(): Promise<void> {
   if (import.meta.env.DEV) Object.assign(window, { __game: game })
   const floorArena = buildFloorArena(ARENA_HALF)
   const sideArena = buildSideArena(ARENA_HALF, SIDE_TOP)
-  sideArena.visible = false
-  world.scene.add(floorArena, sideArena)
+  const growthArena = buildSideArena(ARENA_HALF, SIDE_TOP, {
+    plane: GROWTH,
+    xFrom: 0,
+    xTo: 2 * ARENA_HALF,
+    scenery: 'lab',
+  })
+  sideArena.visible = growthArena.visible = false
+  world.scene.add(floorArena, sideArena, growthArena)
   const turret = new Turret(world.scene, ARENA_HALF)
   const aim = new AimLine(world.scene)
   const beam = new Beam(world.scene)
@@ -84,12 +90,15 @@ async function main(): Promise<void> {
     turret.aimAlong(path)
   }
 
-  /** Laseren skyder på gulvet, granaten i sidebilledet. */
+  /** Laseren skyder på gulvet, granaten i sidebilledet og raketten i laboratoriets sidebillede. */
+  const PLANES: Record<typeof game.weapon, Plane> = { laser: FLOOR, grenade: SIDE, rocket: GROWTH }
+  const NOUNS: Record<typeof game.weapon, string> = { laser: 'linje', grenade: 'bue', rocket: 'kurve' }
   const applyWeapon = () => {
-    const plane = game.weapon === 'laser' ? FLOOR : SIDE
+    const plane = PLANES[game.weapon]
     world.setView(plane.view)
     floorArena.visible = plane === FLOOR
     sideArena.visible = plane === SIDE
+    growthArena.visible = plane === GROWTH
     turret.setPlane(plane)
     aim.setPlane(plane)
     enemies.setPlane(plane)
@@ -99,6 +108,7 @@ async function main(): Promise<void> {
 
   const loadWave = () => {
     hud.hideOverlay()
+    controls.setLinearAvailable(!!game.spec.linear)
     enemies.set(game.enemies, game.help.coordinates)
     walls.set(game.walls)
     showAim()
@@ -193,7 +203,13 @@ async function main(): Promise<void> {
         return
       }
       if (!game.path.ok) {
-        hud.toast(game.weapon === 'laser' ? 'Linjen rammer ikke banen' : 'Den bue kan ikke skydes')
+        hud.toast(
+          game.weapon === 'laser'
+            ? 'Linjen rammer ikke banen'
+            : game.weapon === 'rocket'
+              ? 'Raketten kan ikke starte der'
+              : 'Den bue kan ikke skydes',
+        )
         return
       }
       shot = game.fire()
@@ -203,8 +219,11 @@ async function main(): Promise<void> {
       if (game.weapon === 'laser') {
         beam.start(shot)
         sfx.laser()
+      } else if (game.weapon === 'rocket') {
+        grenade.start(shot, GROWTH, 'rocket')
+        sfx.rocket()
       } else {
-        grenade.start(shot)
+        grenade.start(shot, SIDE, 'grenade')
         sfx.grenade()
       }
       refresh()
@@ -274,7 +293,7 @@ async function main(): Promise<void> {
     } else if (out.hits === 0) {
       hud.toast('Forbi!')
       sfx.miss()
-    } else if (out.hits > 1) hud.toast(`${out.hits} på én ${game.weapon === 'laser' ? 'linje' : 'bue'}!`)
+    } else if (out.hits > 1) hud.toast(`${out.hits} på én ${NOUNS[game.weapon]}!`)
     else if (out.spawned.length) hud.toast('Deleren delte sig!')
     refresh()
 
@@ -314,7 +333,9 @@ async function main(): Promise<void> {
           text:
             game.weapon === 'laser'
               ? `${left} ${left === 1 ? 'glitch' : 'glitches'} tilbage. Kig efter dem, der står på samme linje.`
-              : `${left} mål tilbage. Kig efter droner, der kan ligge på samme bue.`,
+              : game.weapon === 'rocket'
+                ? `${left} mål tilbage. Kig efter droner, der vokser med den samme faktor.`
+                : `${left} mål tilbage. Kig efter droner, der kan ligge på samme bue.`,
           buttons: [retryButton],
         })
       }, 650)

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { fmtNum } from '../math/format'
 import { textSprite } from './labels'
-import { COLORS, SIDE, toWorld } from './world'
+import { COLORS, SIDE, toWorld, type Plane } from './world'
 
 /** Gulv, gitter, akser med tal og kanten rundt om banen (Linjebyen). */
 export function buildFloorArena(half: number): THREE.Group {
@@ -57,8 +57,18 @@ export function buildFloorArena(half: number): THREE.Group {
   return arena
 }
 
-/** Et lodret koordinatsystem med jorden som x-akse og bjerge i baggrunden (Parabelbjergene). */
-export function buildSideArena(half: number, top: number): THREE.Group {
+export interface SideArenaOptions {
+  /** Hvor matematikkens koordinater står i 3D. SIDE har x fra −half til half, GROWTH fra 0 til 2·half. */
+  plane?: Plane
+  xFrom?: number
+  xTo?: number
+  /** Bjerge (Parabelbjergene) eller glaskolber (Vækstlaboratoriet) i baggrunden. */
+  scenery?: 'mountains' | 'lab'
+}
+
+/** Et lodret koordinatsystem med jorden som x-akse og kulisser i baggrunden. */
+export function buildSideArena(half: number, top: number, opts: SideArenaOptions = {}): THREE.Group {
+  const { plane = SIDE, xFrom = -half, xTo = half, scenery = 'mountains' } = opts
   const arena = new THREE.Group()
 
   // Gitteret står lodret lige bag dronerne
@@ -93,25 +103,31 @@ export function buildSideArena(half: number, top: number): THREE.Group {
   const xAxis = new THREE.Mesh(new THREE.BoxGeometry(2 * half + 1, 0.06, 0.06), axisMat)
   xAxis.position.set(0, 0.01, 0)
   const yAxis = new THREE.Mesh(new THREE.BoxGeometry(0.06, top + 0.6, 0.06), axisMat)
-  yAxis.position.set(0, (top + 0.6) / 2, 0)
+  yAxis.position.copy(plane.toWorld(0, (top + 0.6) / 2))
   arena.add(xAxis, yAxis)
 
-  for (let v = -half; v <= half; v += 2) {
+  // Tallene på x-aksen står på jorden lige foran aksen. Under aksen ville jorden skjule dem.
+  for (let v = xFrom; v <= xTo; v += 2) {
     if (v === 0) continue
     const label = textSprite(fmtNum(v))
-    label.position.copy(SIDE.toWorld(v, -0.55, 0.3))
+    label.position.copy(plane.toWorld(v, 0.22, 1.1))
     arena.add(label)
   }
   for (let v = 2; v <= top; v += 2) {
     const label = textSprite(fmtNum(v))
-    label.position.copy(SIDE.toWorld(-0.6, v, 0.1))
+    label.position.copy(plane.toWorld(-0.6, v, 0.1))
     arena.add(label)
   }
   const xName = textSprite('x', { color: '#dce6f4', height: 0.7 })
-  xName.position.copy(SIDE.toWorld(half + 0.6, 0.5, 0.2))
+  xName.position.copy(plane.toWorld(xTo + 0.6, 0.5, 0.2))
   const yName = textSprite('y', { color: '#dce6f4', height: 0.7 })
-  yName.position.copy(SIDE.toWorld(0.5, top + 0.5, 0.2))
+  yName.position.copy(plane.toWorld(0.5, top + 0.5, 0.2))
   arena.add(xName, yName)
+
+  if (scenery === 'lab') {
+    arena.add(buildLab())
+    return arena
+  }
 
   // Lavpolygon-bjerge bag gitteret
   const mountainMat = new THREE.MeshStandardMaterial({ color: COLORS.mountain, flatShading: true, roughness: 1 })
@@ -131,4 +147,45 @@ export function buildSideArena(half: number, top: number): THREE.Group {
     arena.add(m)
   }
   return arena
+}
+
+/** Glaskolber med lysende væske bag gitteret i Vækstlaboratoriet. */
+function buildLab(): THREE.Group {
+  const lab = new THREE.Group()
+  const glass = new THREE.MeshStandardMaterial({
+    color: COLORS.flask,
+    transparent: true,
+    opacity: 0.18,
+    roughness: 0.1,
+    depthWrite: false,
+  })
+  const liquid = new THREE.MeshStandardMaterial({
+    color: COLORS.liquid,
+    emissive: 0x0d5a2c,
+    flatShading: true,
+    transparent: true,
+    opacity: 0.75,
+  })
+  // [x, højde, radius, væskens andel]: væsken stiger mod højre, som når noget vokser
+  const tubes: [number, number, number, number][] = [
+    [-17, 6, 1.2, 0.2],
+    [-11, 9, 1.6, 0.25],
+    [-4, 7, 1.3, 0.35],
+    [3, 11, 1.8, 0.45],
+    [10, 8, 1.4, 0.65],
+    [16, 12, 1.9, 0.85],
+    [22, 7, 1.3, 0.95],
+  ]
+  for (const [x, h, r, fill] of tubes) {
+    const z = -11 - (Math.abs(x) % 3)
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 10, 1, true), glass)
+    tube.position.set(x, h / 2 - 0.5, z)
+    const fluid = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.9, r * 0.9, h * fill, 10), liquid)
+    fluid.position.set(x, (h * fill) / 2 - 0.5, z)
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.08, 6, 16), glass)
+    rim.rotation.x = Math.PI / 2
+    rim.position.set(x, h - 0.5, z)
+    lab.add(fluid, tube, rim)
+  }
+  return lab
 }

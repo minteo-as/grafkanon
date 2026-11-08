@@ -94,6 +94,13 @@ export class Sfx {
     this.tone({ type: 'triangle', from: 500, to: 1300, duration: 0.6, volume: 0.04, delay: 0.05 })
   }
 
+  /** Raketten tænder: et sus, der stiger, ligesom kurven. */
+  rocket(): void {
+    this.noise({ duration: 0.7, volume: 0.28, filterFrom: 400, filterTo: 4200, filterType: 'bandpass', q: 1.2 })
+    this.tone({ type: 'sawtooth', from: 90, to: 640, duration: 0.7, volume: 0.07 })
+    this.tone({ type: 'sine', from: 70, to: 45, duration: 0.25, volume: 0.35 })
+  }
+
   /** Granaten rammer jorden eller en mur. */
   boom(): void {
     this.tone({ type: 'sine', from: 140, to: 32, duration: 0.6, volume: 0.9, attack: 0.003 })

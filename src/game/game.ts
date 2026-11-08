@@ -1,15 +1,15 @@
 // Spillets regler uden grafik, så de kan testes for sig.
 
-import { computePath, type Aim, type Path, type PathResult, type Wall } from '../math/path'
+import type { Aim, Path, PathResult, Wall } from '../math/path'
 import { LEVELS, weaponOf, type Level } from './levels'
 import { mulberry32, type Rng } from './rng'
 import { BONUS_PER_SPARE_SHOT, helpMultiplier, shotPoints, starsFor, type Help, type WaveResult } from './scoring'
 import {
-  ARENA_HALF,
   canHit,
   generateWave,
   isOutside,
   mirrorOf,
+  pathFor,
   type Spawn,
   type WaveLayout,
   type WaveSpec,
@@ -61,7 +61,9 @@ export interface LevelResult {
 }
 
 export function defaultAim(weapon: Weapon): Aim {
-  return weapon === 'grenade' ? { kind: 'parabola', a: -1, h: 0, k: 6 } : { kind: 'line', a: 1, b: 0 }
+  if (weapon === 'grenade') return { kind: 'parabola', a: -1, h: 0, k: 6 }
+  if (weapon === 'rocket') return { kind: 'exp', a: 2, b: 1 }
+  return { kind: 'line', a: 1, b: 0 }
 }
 
 export class Game {
@@ -123,7 +125,7 @@ export class Game {
 
   /** Hvor det næste skud vil gå hen, eller hvorfor det ikke kan skydes. */
   get path(): PathResult {
-    return computePath(this.aim, ARENA_HALF, this.walls)
+    return pathFor(this.weapon, this.aim, this.walls)
   }
 
   /** Pointgangen for den igangværende bølge. */
@@ -178,9 +180,10 @@ export class Game {
   /** Starter banen. Med et seed bliver bølgerne de samme hver gang (bruges til ugens udfordring). */
   startLevel(level: Level, seed?: number): void {
     if (seed !== undefined) this.rng = mulberry32(seed)
+    const previous = this.weapon
     this.level = level
-    const kind = this.weapon === 'grenade' ? 'parabola' : 'line'
-    if (this.aim.kind !== kind) this.aim = defaultAim(this.weapon)
+    // Sigtet beholdes fra bane til bane med samme våben, men ikke over i et andet våben
+    if (this.weapon !== previous || this.aim.kind !== defaultAim(this.weapon).kind) this.aim = defaultAim(this.weapon)
     if (this.aim.kind === 'parabola' && level.locked?.a !== undefined) this.aim = { ...this.aim, a: level.locked.a }
     this.score = 0
     this.results = []

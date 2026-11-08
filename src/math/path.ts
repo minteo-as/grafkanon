@@ -1,8 +1,12 @@
-// Våbnenes baner gennem koordinatsystemet: laserens rette linje og granatens bue.
+// Våbnenes baner gennem koordinatsystemet: laserens rette linje, granatens bue og rakettens vækstkurve.
 
 import { clipToSquare, distanceToLine } from './line'
 
-export type Aim = { kind: 'line'; a: number; b: number } | { kind: 'parabola'; a: number; h: number; k: number }
+export type Aim =
+  | { kind: 'line'; a: number; b: number }
+  | { kind: 'parabola'; a: number; h: number; k: number }
+  /** Eksponentiel vækst y = b · aˣ (raketten). */
+  | { kind: 'exp'; a: number; b: number }
 
 /** En mur i sidebilledet. Den står på jorden ved x og er WALL_HALF_WIDTH bred til hver side. */
 export interface Wall {
@@ -17,17 +21,19 @@ export interface Path {
   xa: number
   xb: number
   f(x: number): number
-  /** Hvad der stopper banen: kanten af banen, jorden (nulpunktet) eller en mur. */
+  /** Hvad der stopper banen: kanten af banen (eller toppen), jorden (nulpunktet) eller en mur. */
   end: 'edge' | 'ground' | 'wall'
   distanceTo(x: number, y: number): number
 }
 
-export type PathProblem = 'outside' | 'opensUp' | 'belowGround' | 'landsOutside'
+export type PathProblem = 'outside' | 'opensUp' | 'belowGround' | 'landsOutside' | 'startOutside' | 'badFactor'
 
 export type PathResult = { ok: true; path: Path } | { ok: false; reason: PathProblem }
 
 export function aimFunction(aim: Aim): (x: number) => number {
-  return aim.kind === 'line' ? (x) => aim.a * x + aim.b : (x) => aim.a * (x - aim.h) ** 2 + aim.k
+  if (aim.kind === 'line') return (x) => aim.a * x + aim.b
+  if (aim.kind === 'exp') return (x) => aim.b * aim.a ** x
+  return (x) => aim.a * (x - aim.h) ** 2 + aim.k
 }
 
 /** Nulpunkterne for en parabel, der åbner nedad og har toppunkt over jorden. */
@@ -91,6 +97,8 @@ export function computePath(aim: Aim, half: number, walls: readonly Wall[] = [])
     }
   }
 
+  // Raketten har sin egen bane (computeGrowthPath)
+  if (aim.kind === 'exp') return { ok: false, reason: 'outside' }
   if (aim.a >= 0) return { ok: false, reason: 'opensUp' }
   if (aim.k <= 0) return { ok: false, reason: 'belowGround' }
   const [xa, x1] = roots(aim.a, aim.h, aim.k)!
@@ -112,6 +120,28 @@ export function computePath(aim: Aim, half: number, walls: readonly Wall[] = [])
     break
   }
   return { ok: true, path: { xa, xb, f, end, distanceTo: (x, y) => curveDistance(f, xa, xb, x, y) } }
+}
+
+/**
+ * Raketten i Vækstlaboratoriet: x er tiden fra 0 til width, og y går fra jorden op til top.
+ * Den starter på y-aksen i (0, b) og flyver mod højre, til den forlader banen foroven, rammer
+ * jorden eller når kanten. Den kan følge eksponentiel vækst y = b · aˣ eller lineær vækst y = ax + b.
+ */
+export function computeGrowthPath(aim: Aim, width: number, top: number): PathResult {
+  if (aim.kind === 'parabola') return { ok: false, reason: 'outside' }
+  if (aim.kind === 'exp' && aim.a <= 0) return { ok: false, reason: 'badFactor' }
+  if (aim.b <= 0 || aim.b > top) return { ok: false, reason: 'startOutside' }
+  const f = aimFunction(aim)
+  let xb = width
+  let end: Path['end'] = 'edge'
+  if (aim.kind === 'line') {
+    if (aim.a > 0) xb = Math.min(width, (top - aim.b) / aim.a)
+    else if (aim.a < 0 && -aim.b / aim.a < width) {
+      xb = -aim.b / aim.a
+      end = 'ground'
+    }
+  } else if (aim.a > 1) xb = Math.min(width, Math.log(top / aim.b) / Math.log(aim.a))
+  return { ok: true, path: { xa: 0, xb, f, end, distanceTo: (x, y) => curveDistance(f, 0, xb, x, y) } }
 }
 
 /** Punkter langs banen, fx til sigtelinjen og granatens spor. */

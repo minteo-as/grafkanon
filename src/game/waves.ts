@@ -1,10 +1,20 @@
 import type { Line } from '../math/line'
-import { aimFunction, computePath, roots, WALL_HALF_WIDTH, type Aim, type Wall } from '../math/path'
+import {
+  aimFunction,
+  computeGrowthPath,
+  computePath,
+  roots,
+  WALL_HALF_WIDTH,
+  type Aim,
+  type PathResult,
+  type Wall,
+} from '../math/path'
 import { pick, randInt, shuffle, type Rng } from './rng'
 
 export const ARENA_HALF = 10 // banen går fra −10 til 10 på begge akser (i sidebilledet x fra −10 til 10)
 export const SPAWN_LIMIT = 8 // glitches står inden for ±8, så der er luft til kanten
 export const SIDE_TOP = 12 // sidebilledet går fra jorden (y = 0) op til y = 12
+export const GROWTH_WIDTH = 2 * ARENA_HALF // i Vækstlaboratoriet er x tiden fra 0 til 20
 const DRONE_MAX_Y = 11
 const MIN_GAP = 1.9
 
@@ -12,7 +22,7 @@ const MIN_GAP = 1.9
 export const MIN_HOPS = 7
 export const MAX_HOPS = 12
 
-export type Weapon = 'laser' | 'grenade'
+export type Weapon = 'laser' | 'grenade' | 'rocket'
 
 export interface Point {
   x: number
@@ -51,15 +61,34 @@ export interface ArcGroup {
   yAxis?: boolean
 }
 
-/** Tvillingen: to svage punkter, der skal rammes i samme skud. Kurven: flyver langs en parabel med det svage punkt i toppunktet. */
+/** Droner på samme vækstkurve (raket): y = b · aˣ, eller y = ax + b, hvis væksten er lineær. */
+export interface GrowthGroup {
+  kind: 'growth'
+  count: number
+  /** Mulige vækstfaktorer a (eller hældninger, hvis linear). */
+  as: readonly number[]
+  /** Mulige startværdier b. */
+  bs: readonly number[]
+  /** Lineær vækst y = ax + b i stedet for eksponentiel. */
+  linear?: boolean
+  /** En drone sidder på y-aksen i startværdien (0, b). */
+  start?: boolean
+}
+
+/**
+ * Tvillingen: to svage punkter, der skal rammes i samme skud. Kurven: flyver langs en parabel med det
+ * svage punkt i toppunktet. Kolonien: to svage punkter på samme vækstkurve, der skal rammes i samme skud.
+ */
 export interface BossSpec {
-  kind: 'twins' | 'curve'
+  kind: BossKind
   phases: number
-  /** Hældninger (Tvillingen) eller værdier af a (Kurven). */
+  /** Hældninger (Tvillingen), værdier af a (Kurven) eller vækstfaktorer (Kolonien). */
   values: readonly number[]
 }
 
-export type Group = LineGroup | ArcGroup
+export type BossKind = 'twins' | 'curve' | 'colony'
+
+export type Group = LineGroup | ArcGroup | GrowthGroup
 
 export interface WaveSpec {
   groups: Group[]
@@ -74,11 +103,13 @@ export interface WaveSpec {
   splitters?: number
   /** Antal barrierer (x = k eller y = k), man kan sætte i bølgen. */
   barriers?: number
+  /** Raketten kan også skyde med lineær vækst y = ax + b. */
+  linear?: boolean
   boss?: BossSpec
 }
 
 export interface BossTag {
-  kind: 'twins' | 'curve'
+  kind: BossKind
   /** Hvilken af bossens faser punktet hører til (0 = første). */
   phase: number
   /** Kurvens egen bane. */
@@ -90,7 +121,7 @@ export interface Spawn extends Point {
   shield?: Shield
   splits?: boolean
   boss?: BossTag
-  /** Punkter med samme link skal rammes i samme skud (Tvillingens svage punkter). */
+  /** Punkter med samme link skal rammes i samme skud (Tvillingens og Koloniens svage punkter). */
   link?: number
 }
 
@@ -111,6 +142,11 @@ export function canHit(aim: Aim, target: Spawn): boolean {
   return target.shield === 'neg' ? aim.a < 0 : aim.a > 0
 }
 
+/** Hvor våbnet skyder hen. Raketten har sit eget koordinatsystem, hvor x er tiden fra 0 til 20. */
+export function pathFor(weapon: Weapon, aim: Aim, walls: readonly Wall[] = []): PathResult {
+  return weapon === 'rocket' ? computeGrowthPath(aim, GROWTH_WIDTH, SIDE_TOP) : computePath(aim, ARENA_HALF, walls)
+}
+
 /** Delerens nye glitch dukker op spejlet i y-aksen. */
 export const mirrorOf = (p: Point): Point => ({ x: -p.x, y: p.y })
 
@@ -126,11 +162,18 @@ export function hopsToEscape(p: Point, m: March): number {
 
 export const isOutside = (p: Point): boolean => Math.abs(p.x) > ARENA_HALF || Math.abs(p.y) > ARENA_HALF
 
-/** Vælger punkter blandt kandidaterne: mindst 2 fra hinanden på x-aksen og ikke for tæt på andre glitches. */
-function choosePoints(required: Point[], candidates: Point[], count: number, taken: Point[], rng: Rng): Point[] | null {
+/** Vælger punkter blandt kandidaterne: mindst minDx fra hinanden på x-aksen og ikke for tæt på andre glitches. */
+function choosePoints(
+  required: Point[],
+  candidates: Point[],
+  count: number,
+  taken: Point[],
+  rng: Rng,
+  minDx = 2,
+): Point[] | null {
   const out: Point[] = []
   const fits = (p: Point) =>
-    !out.some((q) => Math.abs(q.x - p.x) < 2) &&
+    !out.some((q) => Math.abs(q.x - p.x) < minDx) &&
     !taken.some((q) => dist(p, q) < MIN_GAP) &&
     !out.some((q) => dist(p, q) < MIN_GAP)
   for (const p of required) {
@@ -195,6 +238,30 @@ function placeArc(group: ArcGroup, taken: Point[], rng: Rng): { points: Point[];
   return points ? { points, aim: { kind: 'parabola', a, h, k } } : null
 }
 
+/** Punkter på vækstkurven ved hele x (tidsskridt), hvor en drone kan sidde. */
+function growthCandidates(aim: Aim): Point[] {
+  const f = aimFunction(aim)
+  const out: Point[] = []
+  for (let x = 1; x <= GROWTH_WIDTH - 2; x++) {
+    const y = f(x)
+    if (y >= 0.6 && y <= DRONE_MAX_Y + 0.4) out.push({ x, y: isInt(y) ? Math.round(y) : y })
+  }
+  return out
+}
+
+/**
+ * Vækst går hurtigt ud af billedet, så dronerne må gerne stå ét skridt fra hinanden, hvis de er
+ * langt nok fra hinanden i højden. Så kan man se faktoren direkte: fx 2, 4, 8 ved x = 1, 2, 3.
+ */
+function placeGrowth(group: GrowthGroup, taken: Point[], rng: Rng): { points: Point[]; aim: Aim } | null {
+  const a = pick(group.as, rng)
+  const b = pick(group.bs, rng)
+  const aim: Aim = group.linear ? { kind: 'line', a, b } : { kind: 'exp', a, b }
+  const required = group.start ? [{ x: 0, y: b }] : []
+  const points = choosePoints(required, growthCandidates(aim), group.count, taken, rng, 1)
+  return points ? { points, aim } : null
+}
+
 /** Mure placeres, så løsningen stadig kommer over, men en lav bue bliver stoppet. */
 function placeWalls(count: number, enemies: Point[], solution: Aim[], rng: Rng): Wall[] | null {
   const candidates: Wall[] = []
@@ -230,11 +297,13 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
   for (const group of spec.groups) {
     let placed: Point[] | null = null
     for (let t = 0; t < 60 && !placed; t++) {
-      if (group.kind === 'arc') {
-        const arc = placeArc(group, enemies, rng)
-        if (!arc) continue
-        placed = arc.points
-        solution.push(arc.aim)
+      if (group.kind === 'arc' || group.kind === 'growth') {
+        const placedGroup = group.kind === 'arc' ? placeArc(group, enemies, rng) : placeGrowth(group, enemies, rng)
+        if (!placedGroup) continue
+        // To grupper på samme kurve ville være én gruppe
+        if (solution.some((s) => JSON.stringify(s) === JSON.stringify(placedGroup.aim))) continue
+        placed = placedGroup.points
+        solution.push(placedGroup.aim)
       } else {
         const slopes = group.shield
           ? group.slopes.filter((a) => (group.shield === 'neg' ? a < 0 : a > 0))
@@ -248,8 +317,10 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
     if (!placed) return null
     for (const p of placed) {
       const spawn: Spawn = { ...p }
-      if (group.kind !== 'arc' && group.march) spawn.march = { ...group.march }
-      if (group.kind !== 'arc' && group.shield) spawn.shield = group.shield
+      if (group.kind !== 'arc' && group.kind !== 'growth') {
+        if (group.march) spawn.march = { ...group.march }
+        if (group.shield) spawn.shield = group.shield
+      }
       enemies.push(spawn)
     }
   }
@@ -260,13 +331,22 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
       const c =
         weapon === 'grenade'
           ? { x: randInt(-7, 7, rng), y: randInt(2, 9, rng) }
-          : { x: randInt(-7, 7, rng), y: randInt(-7, 7, rng) }
+          : weapon === 'rocket'
+            ? { x: randInt(2, 17, rng), y: randInt(1, 10, rng) }
+            : { x: randInt(-7, 7, rng), y: randInt(-7, 7, rng) }
       if (enemies.every((q) => dist(c, q) >= 2.5)) p = c
     }
     if (!p) return null
     enemies.push(p)
-    // En enlig drone rammes af en bue med toppunkt i dronen; en enlig glitch på gulvet af en vandret linje
-    solution.push(weapon === 'grenade' ? { kind: 'parabola', a: -1, h: p.x, k: p.y } : { kind: 'line', a: 0, b: p.y })
+    // En enlig drone rammes af en bue med toppunkt i dronen eller en raket uden vækst (a = 1);
+    // en enlig glitch på gulvet af en vandret linje
+    solution.push(
+      weapon === 'grenade'
+        ? { kind: 'parabola', a: -1, h: p.x, k: p.y }
+        : weapon === 'rocket'
+          ? { kind: 'exp', a: 1, b: p.y }
+          : { kind: 'line', a: 0, b: p.y },
+    )
   }
 
   for (let s = 0; s < (spec.splitters ?? 0); s++) {
@@ -332,6 +412,20 @@ function placeBossPhase(
         aim: { kind: 'line', ...line },
       }
     }
+    if (boss.kind === 'colony') {
+      // To svage punkter ét skridt fra hinanden på samme vækstkurve, så a = y₂ : y₁
+      const a = pick(boss.values, rng)
+      const aim: Aim = { kind: 'exp', a, b: randInt(a < 1 ? 6 : 1, a < 1 ? 11 : 4, rng) }
+      const free = shuffle(
+        growthCandidates(aim).filter((p) => minions.every((q) => dist(p, q) >= 2.5)),
+        rng,
+      )
+      const first = free[0]
+      const second = first && free.find((p) => Math.abs(p.x - first.x) === 1 && dist(p, first) >= MIN_GAP)
+      if (!first || !second) continue
+      const tag: BossTag = { kind: 'colony', phase }
+      return { spawns: [first, second].map((p) => ({ ...p, boss: tag, link: phase + 1 })), aim }
+    }
     const arc = placeArc({ kind: 'arc', count: 3, as: boss.values, top: true }, minions, rng)
     if (!arc || arc.aim.kind !== 'parabola') continue
     const top = { x: arc.aim.h, y: arc.aim.k }
@@ -352,8 +446,8 @@ export function allTargets(layout: WaveLayout): Spawn[] {
 }
 
 /** Hver glitch ligger på en af løsningens baner, kan rammes af den, og ingen mur stopper banen før glitchen. */
-export function isSolvable(layout: WaveLayout): boolean {
-  const paths = layout.solution.map((s) => ({ aim: s, result: computePath(s, ARENA_HALF, layout.walls) }))
+export function isSolvable(layout: WaveLayout, weapon: Weapon = 'laser'): boolean {
+  const paths = layout.solution.map((s) => ({ aim: s, result: pathFor(weapon, s, layout.walls) }))
   if (!paths.every((p) => p.result.ok)) return false
   return allTargets(layout).every((e) =>
     paths.some((p) => p.result.ok && canHit(p.aim, e) && p.result.path.distanceTo(e.x, e.y) < 1e-6),
@@ -363,9 +457,22 @@ export function isSolvable(layout: WaveLayout): boolean {
 export function generateWave(spec: WaveSpec, rng: Rng, weapon: Weapon = 'laser'): WaveLayout {
   for (let tries = 0; tries < 800; tries++) {
     const layout = tryGenerate(spec, weapon, rng)
-    if (layout && isSolvable(layout)) return layout
+    if (layout && isSolvable(layout, weapon)) return layout
   }
   // Nødløsning, hvis tilfældigheden er meget uheldig
+  if (weapon === 'rocket') {
+    return {
+      enemies: [
+        { x: 1, y: 2 },
+        { x: 2, y: 4 },
+        { x: 3, y: 8 },
+      ],
+      phases: [],
+      walls: [],
+      ammo: 2,
+      solution: [{ kind: 'exp', a: 2, b: 1 }],
+    }
+  }
   return weapon === 'grenade'
     ? {
         enemies: [
