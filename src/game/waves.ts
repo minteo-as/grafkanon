@@ -3,6 +3,7 @@ import {
   aimFunction,
   computeGrowthPath,
   computePath,
+  computeSideLinePath,
   roots,
   WALL_HALF_WIDTH,
   type Aim,
@@ -22,7 +23,8 @@ const MIN_GAP = 1.9
 export const MIN_HOPS = 7
 export const MAX_HOPS = 12
 
-export type Weapon = 'laser' | 'grenade' | 'rocket'
+/** 'final': Finalen, hvor alle tre våben kan bruges i samme sidebillede. */
+export type Weapon = 'laser' | 'grenade' | 'rocket' | 'final'
 
 export interface Point {
   x: number
@@ -86,7 +88,8 @@ export interface BossSpec {
   values: readonly number[]
 }
 
-export type BossKind = 'twins' | 'curve' | 'colony'
+/** 'final': Kernen, slutbossen, med én fase til hvert våben. */
+export type BossKind = 'twins' | 'curve' | 'colony' | 'final'
 
 export type Group = LineGroup | ArcGroup | GrowthGroup
 
@@ -144,7 +147,19 @@ export function canHit(aim: Aim, target: Spawn): boolean {
 
 /** Hvor våbnet skyder hen. Raketten har sit eget koordinatsystem, hvor x er tiden fra 0 til 20. */
 export function pathFor(weapon: Weapon, aim: Aim, walls: readonly Wall[] = []): PathResult {
-  return weapon === 'rocket' ? computeGrowthPath(aim, GROWTH_WIDTH, SIDE_TOP) : computePath(aim, ARENA_HALF, walls)
+  if (weapon === 'rocket') return computeGrowthPath(aim, GROWTH_WIDTH, SIDE_TOP)
+  if (weapon === 'final') {
+    // I Finalen bestemmer funktionen våbnet: linje = laser, parabel = granat, vækst = raket fra y-aksen
+    if (aim.kind === 'line') return computeSideLinePath(aim, ARENA_HALF, SIDE_TOP)
+    if (aim.kind === 'exp') return computeGrowthPath(aim, ARENA_HALF, SIDE_TOP)
+  }
+  return computePath(aim, ARENA_HALF, walls)
+}
+
+/** Hvor glitches må stå på en linje: på gulvet overalt inden for ±8, i Finalens sidebillede over jorden. */
+const LINE_SPOTS = {
+  floor: { xMax: SPAWN_LIMIT, yMin: -SPAWN_LIMIT, yMax: SPAWN_LIMIT },
+  side: { xMax: 9, yMin: 1, yMax: DRONE_MAX_Y },
 }
 
 /** Delerens nye glitch dukker op spejlet i y-aksen. */
@@ -187,11 +202,18 @@ function choosePoints(
   return out.length === count ? out : null
 }
 
-function pointsOnLine(line: Line, count: number, taken: Point[], rng: Rng, march?: March): Point[] | null {
+function pointsOnLine(
+  line: Line,
+  count: number,
+  taken: Point[],
+  rng: Rng,
+  march?: March,
+  spots = LINE_SPOTS.floor,
+): Point[] | null {
   const candidates: Point[] = []
-  for (let x = -SPAWN_LIMIT; x <= SPAWN_LIMIT; x++) {
+  for (let x = -spots.xMax; x <= spots.xMax; x++) {
     const y = line.a * x + line.b
-    if (!isInt(y) || Math.abs(Math.round(y)) > SPAWN_LIMIT) continue
+    if (!isInt(y) || Math.round(y) < spots.yMin || Math.round(y) > spots.yMax) continue
     const p = { x, y: Math.round(y) }
     if (march && hopsToEscape(p, march) < MIN_HOPS) continue
     candidates.push(p)
@@ -239,10 +261,10 @@ function placeArc(group: ArcGroup, taken: Point[], rng: Rng): { points: Point[];
 }
 
 /** Punkter på vækstkurven ved hele x (tidsskridt), hvor en drone kan sidde. */
-function growthCandidates(aim: Aim): Point[] {
+function growthCandidates(aim: Aim, maxX = GROWTH_WIDTH - 2): Point[] {
   const f = aimFunction(aim)
   const out: Point[] = []
-  for (let x = 1; x <= GROWTH_WIDTH - 2; x++) {
+  for (let x = 1; x <= maxX; x++) {
     const y = f(x)
     if (y >= 0.6 && y <= DRONE_MAX_Y + 0.4) out.push({ x, y: isInt(y) ? Math.round(y) : y })
   }
@@ -253,12 +275,17 @@ function growthCandidates(aim: Aim): Point[] {
  * Vækst går hurtigt ud af billedet, så dronerne må gerne stå ét skridt fra hinanden, hvis de er
  * langt nok fra hinanden i højden. Så kan man se faktoren direkte: fx 2, 4, 8 ved x = 1, 2, 3.
  */
-function placeGrowth(group: GrowthGroup, taken: Point[], rng: Rng): { points: Point[]; aim: Aim } | null {
+function placeGrowth(
+  group: GrowthGroup,
+  taken: Point[],
+  rng: Rng,
+  maxX = GROWTH_WIDTH - 2,
+): { points: Point[]; aim: Aim } | null {
   const a = pick(group.as, rng)
   const b = pick(group.bs, rng)
   const aim: Aim = group.linear ? { kind: 'line', a, b } : { kind: 'exp', a, b }
   const required = group.start ? [{ x: 0, y: b }] : []
-  const points = choosePoints(required, growthCandidates(aim), group.count, taken, rng, 1)
+  const points = choosePoints(required, growthCandidates(aim, maxX), group.count, taken, rng, 1)
   return points ? { points, aim } : null
 }
 
@@ -298,7 +325,11 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
     let placed: Point[] | null = null
     for (let t = 0; t < 60 && !placed; t++) {
       if (group.kind === 'arc' || group.kind === 'growth') {
-        const placedGroup = group.kind === 'arc' ? placeArc(group, enemies, rng) : placeGrowth(group, enemies, rng)
+        // I Finalen står raketten i midten af sidebilledet, så vækstkurven har kun den højre halvdel
+        const placedGroup =
+          group.kind === 'arc'
+            ? placeArc(group, enemies, rng)
+            : placeGrowth(group, enemies, rng, weapon === 'final' ? ARENA_HALF - 1 : undefined)
         if (!placedGroup) continue
         // To grupper på samme kurve ville være én gruppe
         if (solution.some((s) => JSON.stringify(s) === JSON.stringify(placedGroup.aim))) continue
@@ -308,9 +339,10 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
         const slopes = group.shield
           ? group.slopes.filter((a) => (group.shield === 'neg' ? a < 0 : a > 0))
           : group.slopes
-        const line = { a: pick(slopes, rng), b: randInt(-5, 5, rng) }
+        const side = weapon === 'final'
+        const line = { a: pick(slopes, rng), b: side ? randInt(1, 10, rng) : randInt(-5, 5, rng) }
         if (solution.some((s) => s.kind === 'line' && s.a === line.a)) continue
-        placed = pointsOnLine(line, group.count, enemies, rng, group.march)
+        placed = pointsOnLine(line, group.count, enemies, rng, group.march, side ? LINE_SPOTS.side : LINE_SPOTS.floor)
         if (placed) solution.push({ kind: 'line', ...line })
       }
     }
@@ -333,7 +365,9 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
           ? { x: randInt(-7, 7, rng), y: randInt(2, 9, rng) }
           : weapon === 'rocket'
             ? { x: randInt(2, 17, rng), y: randInt(1, 10, rng) }
-            : { x: randInt(-7, 7, rng), y: randInt(-7, 7, rng) }
+            : weapon === 'final'
+              ? { x: randInt(-8, 8, rng), y: randInt(2, 10, rng) }
+              : { x: randInt(-7, 7, rng), y: randInt(-7, 7, rng) }
       if (enemies.every((q) => dist(c, q) >= 2.5)) p = c
     }
     if (!p) return null
@@ -364,7 +398,7 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
   const phases: Spawn[][] = []
   if (spec.boss) {
     for (let phase = 0; phase < spec.boss.phases; phase++) {
-      const placed = placeBossPhase(spec.boss, phase, enemies, rng)
+      const placed = placeBossPhase(spec.boss, phase, enemies, rng, weapon)
       if (!placed) return null
       phases.push(placed.spawns)
       solution.push(placed.aim)
@@ -384,19 +418,33 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
 }
 
 /** Én af bossens faser. Faserne kommer efter hinanden, så de må gerne stå samme sted. */
+/** Kernens faser i rækkefølge: først laseren (to punkter på en linje), så granaten, så raketten. */
+const FINAL_PHASES: { kind: BossKind; values: number[] }[] = [
+  { kind: 'twins', values: [0.5, 1, -1, -0.5, 2] },
+  { kind: 'curve', values: [-0.5, -1] },
+  { kind: 'colony', values: [2, 1.5, 0.5] },
+]
+
 function placeBossPhase(
-  boss: BossSpec,
+  spec: BossSpec,
   phase: number,
   minions: Point[],
   rng: Rng,
+  weapon: Weapon = 'laser',
 ): { spawns: Spawn[]; aim: Aim } | null {
+  const step = spec.kind === 'final' ? FINAL_PHASES[phase % FINAL_PHASES.length] : null
+  const boss = step ? { ...spec, kind: step.kind, values: step.values } : spec
+  const side = weapon === 'final'
   for (let t = 0; t < 80; t++) {
     if (boss.kind === 'twins') {
-      const line = { a: pick(boss.values, rng), b: randInt(-5, 5, rng) }
+      const spots = side ? LINE_SPOTS.side : LINE_SPOTS.floor
+      const line = { a: pick(boss.values, rng), b: side ? randInt(2, 9, rng) : randInt(-5, 5, rng) }
       const candidates: Point[] = []
-      for (let x = -SPAWN_LIMIT; x <= SPAWN_LIMIT; x++) {
+      for (let x = -spots.xMax; x <= spots.xMax; x++) {
         const y = line.a * x + line.b
-        if (isInt(y) && Math.abs(Math.round(y)) <= SPAWN_LIMIT) candidates.push({ x, y: Math.round(y) })
+        if (isInt(y) && Math.round(y) >= spots.yMin && Math.round(y) <= spots.yMax) {
+          candidates.push({ x, y: Math.round(y) })
+        }
       }
       const free = shuffle(
         candidates.filter((p) => minions.every((q) => dist(p, q) >= 2.5)),
@@ -417,7 +465,7 @@ function placeBossPhase(
       const a = pick(boss.values, rng)
       const aim: Aim = { kind: 'exp', a, b: randInt(a < 1 ? 6 : 1, a < 1 ? 11 : 4, rng) }
       const free = shuffle(
-        growthCandidates(aim).filter((p) => minions.every((q) => dist(p, q) >= 2.5)),
+        growthCandidates(aim, side ? ARENA_HALF - 1 : undefined).filter((p) => minions.every((q) => dist(p, q) >= 2.5)),
         rng,
       )
       const first = free[0]
@@ -460,6 +508,19 @@ export function generateWave(spec: WaveSpec, rng: Rng, weapon: Weapon = 'laser')
     if (layout && isSolvable(layout, weapon)) return layout
   }
   // Nødløsning, hvis tilfældigheden er meget uheldig
+  if (weapon === 'final') {
+    return {
+      enemies: [
+        { x: -4, y: 2 },
+        { x: 0, y: 4 },
+        { x: 4, y: 6 },
+      ],
+      phases: [],
+      walls: [],
+      ammo: 2,
+      solution: [{ kind: 'line', a: 0.5, b: 4 }],
+    }
+  }
   if (weapon === 'rocket') {
     return {
       enemies: [

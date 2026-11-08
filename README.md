@@ -38,6 +38,7 @@ Banerne er defineret i `src/game/levels.ts` og hører til en verden med sit eget
 - **Verden 1 · Linjebyen** (laser, `y = ax + b`): glitches på et gulv, set ovenfra. 6 baner og bossen **Tvillingen**, hvis to svage punkter skal rammes med samme skud. Undervejs kommer marchører, **barrierer** (`x = k` eller `y = k`, der stopper marchører i 8 sekunder), **skjoldbærere** (kan kun rammes, når a har det rigtige fortegn) og **delere** (dukker op igen spejlet i y-aksen).
 - **Verden 2 · Parabelbjergene** (granatkaster, `y = a(x − h)² + k`): droner i et lodret sidebillede. Granaten flyver fra venstre nulpunkt til højre og stopper ved mure, den ikke kommer over. 5 baner, heraf én i almindelig form `y = ax² + bx + c`, og bossen **Kurven**, der besejres ved at skyde langs dens egen parabel.
 - **Verden 3 · Vækstlaboratoriet** (raket, `y = b · aˣ`): droner i et sidebillede, hvor x er tiden fra 0 til 20. Raketten starter på y-aksen i startværdien b og vokser med faktoren a for hvert skridt, til den forlader billedet. Panelet viser væksten i procent pr. skridt. 5 baner: fordobling, procentvis vækst, henfald, lineær mod eksponentiel vækst (man kan skifte til `y = ax + b` med L) og en blandet bane. Bossen **Kolonien** har to svage punkter ét skridt fra hinanden, så a = y₂ : y₁.
+- **Verden 4 · Finalen** (alle våben): linjer, parabler og vækstkurver blandet i samme sidebillede. Man vælger selv våben til hvert skud (fanerne eller tasterne 1, 2 og 3), og en indtastet forskrift vælger selv våbnet. Laseren skyder tværs over, granaten i en bue fra jorden, og raketten starter på y-aksen. 3 baner og slutbossen **Kernen**, der skifter form: to punkter på en linje, en bue med det svage punkt i toppunktet og to punkter på en vækstkurve.
 
 En boss åbner først, når verdenens andre baner er klaret med i gennemsnit 1,5 stjerne.
 
@@ -45,9 +46,13 @@ Hver bane er en liste af bølger, og hver bølge beskriver grupper af mål (anta
 
 Stjerner: ★ for at klare banen, ★★ uden ekstra skud, ★★★ også uden sigtelinje og koordinater.
 
+### Træningsbanen
+
+Under ugens udfordring i menuen ligger træningsbanen med en knap for hvert våben, man har låst op (en verden er låst op, når dens første bane er åben). Der er ingen stjerner. Når målene er ramt, eller skuddene er brugt, kommer der nye mål, og pointene tæller videre.
+
 ### Ugens udfordring
 
-Øverst i menuen ligger ugens udfordring (`src/game/challenge.ts`). Den skifter hver mandag og går på skift mellem verdenerne. Der vælges fire af verdenens almindelige baner og én bølge fra hver. Bølgerne laves med et seed ud fra ISO-ugenummeret, så alle elever får præcis de samme bølger hele ugen, også hvis de prøver en bølge igen. Den er altid åben, og der er ingen server: hver elev ser sin egen bedste score, og klassen sammenligner selv.
+Øverst i menuen ligger ugens udfordring (`src/game/challenge.ts`). Den skifter hver mandag og går på skift mellem de fire verdener. Der vælges fire af verdenens almindelige baner og én bølge fra hver. Bølgerne laves med et seed ud fra ISO-ugenummeret, så alle elever får præcis de samme bølger hele ugen, også hvis de prøver en bølge igen. Den er altid åben, og der er ingen server: hver elev ser sin egen bedste score, og klassen sammenligner selv.
 
 ## CI
 

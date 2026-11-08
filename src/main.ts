@@ -2,11 +2,11 @@ import './style.css'
 import { Sfx } from './audio/sfx'
 import { Game, HIT_RADIUS, type Shot } from './game/game'
 import { weeklyChallenge } from './game/challenge'
-import { LEVELS, type Level } from './game/levels'
+import { LEVELS, TRAINING, type Level } from './game/levels'
 import { loadProgress, recordLevel, saveProgress } from './game/progress'
 import { hitIncrement } from './game/scoring'
-import { ARENA_HALF, canHit, SIDE_TOP, type BossKind } from './game/waves'
-import { buildFloorArena, buildSideArena } from './render/arena'
+import { ARENA_HALF, canHit, SIDE_TOP, type BossKind, type Weapon } from './game/waves'
+import { buildFloorArena, buildSideArena, type Arena } from './render/arena'
 import { AimLine, Beam } from './render/beam'
 import { BarrierLayer } from './render/barriers'
 import { Effects } from './render/effects'
@@ -14,7 +14,17 @@ import { EnemyLayer } from './render/enemies'
 import { Grenade } from './render/grenade'
 import { Turret } from './render/turret'
 import { WallLayer } from './render/walls'
-import { COLORS, FLOOR, GROWTH, prefersReducedMotion, SIDE, THEMES, World, type Plane } from './render/world'
+import {
+  COLORS,
+  FLOOR,
+  GROWTH,
+  prefersReducedMotion,
+  SIDE,
+  THEMES,
+  World,
+  type Plane,
+  type Theme,
+} from './render/world'
 import { Controls } from './ui/controls'
 import { fmtScore, Hud } from './ui/hud'
 import { fmtNum } from './math/format'
@@ -33,6 +43,10 @@ const TAUNTS: Record<BossKind, { start: string; hurt: string[] }> = {
   colony: {
     start: 'Vi vokser hurtigere, end du kan regne!',
     hurt: ['Hvem har lært dig procent?!', 'Vi vokser bare igen!'],
+  },
+  final: {
+    start: 'Jeg er Kernen. Linjer, buer, vækst … du kan aldrig dem alle!',
+    hurt: ['Linjer kan du. Men hvad med en bue?', 'Grr! Prøv så at følge min vækst!'],
   },
 }
 
@@ -65,7 +79,7 @@ async function main(): Promise<void> {
 
   const game = new Game()
   // Kun under udvikling: gør spillet tilgængeligt i konsollen til fejlfinding
-  if (import.meta.env.DEV) Object.assign(window, { __game: game })
+  if (import.meta.env.DEV) Object.assign(window, { __game: game, __world: world })
   const floorArena = buildFloorArena(ARENA_HALF)
   const sideArena = buildSideArena(ARENA_HALF, SIDE_TOP)
   const growthArena = buildSideArena(ARENA_HALF, SIDE_TOP, {
@@ -74,10 +88,21 @@ async function main(): Promise<void> {
     xTo: 2 * ARENA_HALF,
     scenery: 'lab',
   })
-  const ARENAS = { laser: floorArena, grenade: sideArena, rocket: growthArena }
-  const THEME_OF = { laser: THEMES.city, grenade: THEMES.mountains, rocket: THEMES.lab }
-  sideArena.group.visible = growthArena.group.visible = false
-  world.scene.add(floorArena.group, sideArena.group, growthArena.group)
+  const finalArena = buildSideArena(ARENA_HALF, SIDE_TOP, { scenery: 'core' })
+  const ARENAS: Record<Weapon, Arena> = {
+    laser: floorArena,
+    grenade: sideArena,
+    rocket: growthArena,
+    final: finalArena,
+  }
+  const THEME_OF: Record<Weapon, Theme> = {
+    laser: THEMES.city,
+    grenade: THEMES.mountains,
+    rocket: THEMES.lab,
+    final: THEMES.core,
+  }
+  for (const arena of [sideArena, growthArena, finalArena]) arena.group.visible = false
+  world.scene.add(floorArena.group, sideArena.group, growthArena.group, finalArena.group)
   const turret = new Turret(world.scene, ARENA_HALF)
   const aim = new AimLine(world.scene)
   const beam = new Beam(world.scene)
@@ -88,8 +113,14 @@ async function main(): Promise<void> {
   const enemies = new EnemyLayer(world.scene, effects)
   const hud = new Hud()
 
-  /** Banen, der spilles. index er null for ugens udfordring, som ikke er en del af kampagnen. */
-  let current: { level: Level; index: number | null; seed?: number } = { level: LEVELS[0], index: 0 }
+  /**
+   * Banen, der spilles. index er null for ugens udfordring og træningsbanen, som ikke er en del af
+   * kampagnen. På træningsbanen kommer der nye mål i stedet for stjerner.
+   */
+  let current: { level: Level; index: number | null; seed?: number; training?: boolean } = {
+    level: LEVELS[0],
+    index: 0,
+  }
   let inLevel = false // en bane er i gang og kan fortsættes fra menuen
   let shot: Shot | null = null
   let killed = 0
@@ -119,12 +150,13 @@ async function main(): Promise<void> {
     controls.showAim(game.aim, result.ok ? null : result.reason)
     refreshBarriers()
     aim.set(path, game.help.aimLine)
-    turret.aimAlong(path)
+    // Laser og raket i sidebilledet starter oppe i luften, så kanonen kører op ad sin skinne
+    turret.aimAlong(path, game.weapon === 'rocket' || (game.weapon === 'final' && game.aim.kind !== 'parabola'))
     refreshTargets()
   }
 
   /** Laseren skyder på gulvet, granaten i sidebilledet og raketten i laboratoriets sidebillede. */
-  const PLANES: Record<typeof game.weapon, Plane> = { laser: FLOOR, grenade: SIDE, rocket: GROWTH }
+  const PLANES: Record<Weapon, Plane> = { laser: FLOOR, grenade: SIDE, rocket: GROWTH, final: SIDE }
   const applyWeapon = () => {
     const plane = PLANES[game.weapon]
     world.setView(plane.view)
@@ -193,6 +225,18 @@ async function main(): Promise<void> {
 
   const replay = () => (current.index === null ? play(current) : startLevel(current.index))
 
+  const startTraining = (weapon: Weapon) => play({ level: TRAINING[weapon], index: null, training: true })
+
+  /** Træningsbanen: nye mål efter et øjeblik, uanset om bølgen blev klaret eller skuddene sluppet op. */
+  const nextTrainingWave = (message: string) => {
+    window.setTimeout(() => {
+      if (!current.training || !inLevel) return
+      hud.toast(message)
+      game.rerollWave()
+      loadWave()
+    }, 750)
+  }
+
   const openMenu = () => {
     controls.enabled = false
     menu.show(progress, weeklyChallenge(), inLevel, progress.muted)
@@ -207,6 +251,7 @@ async function main(): Promise<void> {
   const menu = new Menu({
     onPlay: startLevel,
     onChallenge: startChallenge,
+    onTraining: startTraining,
     onContinue: closeMenu,
     onToggleSound: toggleSound,
   })
@@ -252,15 +297,18 @@ async function main(): Promise<void> {
       // Rammer skuddet de sidste glitches, uden at nye dukker op bagefter?
       finalShot = shot.hits.length > 0 && game.aliveCount === 0 && !game.bossLives && !shot.hits.some((e) => e.splits)
       turret.kick()
-      if (game.weapon === 'laser') {
-        beam.start(shot)
+      // I Finalen bestemmer funktionen, hvilket våben der skyder
+      const kind = shot.aim.kind
+      const plane = PLANES[game.weapon]
+      if (kind === 'line' && game.weapon !== 'rocket') {
+        beam.start(shot, plane)
         sfx.laser()
-      } else if (game.weapon === 'rocket') {
-        grenade.start(shot, GROWTH, 'rocket')
-        sfx.rocket()
-      } else {
-        grenade.start(shot, SIDE, 'grenade')
+      } else if (kind === 'parabola') {
+        grenade.start(shot, plane, 'grenade')
         sfx.grenade()
+      } else {
+        grenade.start(shot, plane, 'rocket')
+        sfx.rocket()
       }
       refresh()
     },
@@ -335,6 +383,11 @@ async function main(): Promise<void> {
     refresh()
     refreshTargets()
 
+    if (current.training && (out.phase === 'cleared' || out.phase === 'outOfAmmo')) {
+      if (out.phase === 'cleared') sfx.waveCleared()
+      nextTrainingWave(out.phase === 'cleared' ? 'Nye mål!' : 'Nye mål. Prøv igen!')
+      return
+    }
     if (out.phase === 'cleared') {
       if (game.levelResult) {
         window.setTimeout(showLevelComplete, 700)
@@ -373,7 +426,9 @@ async function main(): Promise<void> {
               ? `${left} ${left === 1 ? 'glitch' : 'glitches'} tilbage. Kig efter dem, der står på samme linje.`
               : game.weapon === 'rocket'
                 ? `${left} mål tilbage. Kig efter droner, der vokser med den samme faktor.`
-                : `${left} mål tilbage. Kig efter droner, der kan ligge på samme bue.`,
+                : game.weapon === 'final'
+                  ? `${left} mål tilbage. Står de på en linje, en bue eller en vækstkurve?`
+                  : `${left} mål tilbage. Kig efter droner, der kan ligge på samme bue.`,
           buttons: [retryButton],
         })
       }, 650)

@@ -102,6 +102,16 @@ export const THEMES = {
     fogFar: 110,
     bloom: 0.85,
   },
+  // Finalen: mørkt og rødt, inde i Kernen
+  core: {
+    skyTop: '#040003',
+    skyMid: '#2a0012',
+    skyHorizon: '#7a0a26',
+    fog: 0x1a0008,
+    fogNear: 45,
+    fogFar: 110,
+    bloom: 0.95,
+  },
   // Giftgrønt laboratorium
   lab: {
     skyTop: '#010805',
@@ -235,14 +245,16 @@ export class World {
     const halfFovX = Math.atan(Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect)
     const fitWidth = (half: number) => half / Math.tan(halfFovX)
     if (this.view === 'floor') {
-      // På højkant ses gulvet mere oppefra, så det fylder mere af den høje skærm
+      // På højkant står kameraet lavere og kigger ind over banen, så banen ligger nederst og byen
+      // fylder den øverste del af den høje skærm
       const portrait = this.camera.aspect < 1
-      const dist = Math.max(25.5, fitWidth(portrait ? 11.6 : 12.4) * (portrait ? 1.08 : 1))
-      const [up, back] = portrait ? [0.93, 0.37] : [0.76, 0.65]
+      const dist = Math.max(25.5, fitWidth(portrait ? 12.2 : 12.4) * (portrait ? 1.1 : 1))
+      const [up, back] = portrait ? [0.7, 0.71] : [0.76, 0.65]
       this.basePosition.set(0, dist * up, dist * back)
-      this.lookTarget.set(0, 0, portrait ? 0.3 : 0.9)
+      this.lookTarget.set(0, 0, portrait ? -8.5 : 0.9)
     } else {
-      const dist = Math.max(23, fitWidth(11.2))
+      // Med plads til kanonen og tallene uden for banens kant (x = ±10)
+      const dist = Math.max(23, fitWidth(12.4))
       this.basePosition.set(0, 7.5, dist)
       this.lookTarget.set(0, 5.6, 0)
     }

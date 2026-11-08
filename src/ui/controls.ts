@@ -23,6 +23,16 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
  */
 type Mode = 'laser' | 'vertex' | 'general' | 'barrier' | 'exp' | 'growthLine'
 const isGrowth = (mode: Mode) => mode === 'exp' || mode === 'growthLine'
+
+/** Finalens tre våben og det sigte, hvert af dem starter med. */
+type FinalMode = 'laser' | 'vertex' | 'exp'
+const FINAL_MODES: FinalMode[] = ['laser', 'vertex', 'exp']
+const FINAL_START: Record<FinalMode, Aim> = {
+  laser: { kind: 'line', a: 0.5, b: 4 },
+  vertex: { kind: 'parabola', a: -1, h: 0, k: 6 },
+  exp: { kind: 'exp', a: 2, b: 1 },
+}
+const modeOfAim = (aim: Aim): FinalMode => (aim.kind === 'line' ? 'laser' : aim.kind === 'parabola' ? 'vertex' : 'exp')
 type Key = 'a' | 'b' | 'c' | 'h' | 'k'
 type Values = Record<Key, number>
 
@@ -160,6 +170,10 @@ export class Controls {
   private barrierCount = $('barrierCount')
   private axisRow = $('barrierAxis')
   private growthTools = $('growthTools')
+  private weaponTools = $('weaponTools')
+  /** Finalen: alle tre våben kan vælges, og hvert husker sit eget sigte. */
+  private final = false
+  private remembered: Partial<Record<FinalMode, Aim>> = {}
   private growthNote = $('growthNote')
   private aimMode: Mode = 'laser'
   private mode: Mode = 'laser'
@@ -191,6 +205,9 @@ export class Controls {
         this.setBarrier({ ...this.barrier, axis: button.dataset.axis as 'x' | 'y' }),
       )
     }
+    for (const button of this.weaponTools.querySelectorAll<HTMLButtonElement>('button')) {
+      button.addEventListener('click', () => this.selectWeapon(button.dataset.weapon as FinalMode))
+    }
     for (const button of this.growthTools.querySelectorAll<HTMLButtonElement>('button')) {
       button.addEventListener('click', () => this.selectGrowth(button.dataset.growth === 'line' ? 'growthLine' : 'exp'))
     }
@@ -214,11 +231,15 @@ export class Controls {
 
   /** Sætter våbnet for banen. Låste parametre vises, men kan ikke ændres. */
   setWeapon(weapon: Weapon, opts: { locked?: Partial<Values>; form?: 'vertex' | 'general' } = {}): void {
-    this.aimMode = weapon === 'laser' ? 'laser' : weapon === 'rocket' ? 'exp' : (opts.form ?? 'vertex')
+    this.final = weapon === 'final'
+    this.remembered = {}
+    this.aimMode =
+      weapon === 'laser' || weapon === 'final' ? 'laser' : weapon === 'rocket' ? 'exp' : (opts.form ?? 'vertex')
     this.locked = opts.locked ?? {}
     this.charges = 0
     this.tools.hidden = true
     this.growthTools.hidden = true
+    this.weaponTools.hidden = !this.final
     this.buildMode(this.aimMode)
   }
 
@@ -246,8 +267,17 @@ export class Controls {
     this.lastAim = aim
     this.lastProblem = problem
     if (this.mode === 'barrier') return
+    // I Finalen følger våbnet funktionen, fx når man skriver en parabel ind
+    if (this.final) {
+      const wanted = modeOfAim(aim)
+      this.remembered[wanted] = aim
+      if (wanted !== this.mode) {
+        this.aimMode = wanted
+        return this.buildMode(wanted)
+      }
+    }
     // Raketten skifter selv mellem eksponentiel og lineær, fx når man skriver en forskrift
-    if (isGrowth(this.mode)) {
+    else if (isGrowth(this.mode)) {
       const wanted: Mode = aim.kind === 'line' ? 'growthLine' : 'exp'
       if (wanted !== this.mode) {
         this.aimMode = wanted
@@ -298,8 +328,20 @@ export class Controls {
     this.cb.onAim(this.lastAim)
   }
 
+  /** Finalen: skifter våben og tager det sigte frem, man sidst brugte med det våben. */
+  private selectWeapon(mode: FinalMode): void {
+    if (!this.final || mode === this.mode) return
+    this.aimMode = mode
+    this.lastAim = this.remembered[mode] ?? FINAL_START[mode]
+    this.buildMode(mode)
+    this.cb.onAim(this.lastAim)
+  }
+
   private buildMode(mode: Mode): void {
     this.mode = mode
+    for (const button of this.weaponTools.querySelectorAll<HTMLButtonElement>('button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.weapon === mode))
+    }
     this.rows.clear()
     this.sliders.replaceChildren(
       ...PARAMS[mode].map((p) => {
@@ -337,7 +379,7 @@ export class Controls {
       this.tools.hidden ? '' : ' · <kbd>B</kbd> skifter mellem laser og barriere'
     }${
       this.growthTools.hidden ? '' : ' · <kbd>L</kbd> skifter mellem eksponentiel og lineær'
-    } · <kbd>M</kbd> lyd · <kbd>Esc</kbd> menu`
+    }${this.final ? ' · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> skifter våben' : ''} · <kbd>M</kbd> lyd · <kbd>Esc</kbd> menu`
     this.input.placeholder = PLACEHOLDERS[mode]
     this.input.value = ''
     this.error.textContent = ''
@@ -384,6 +426,35 @@ export class Controls {
       if (!r.ok) return fail(r.reason)
       this.error.textContent = ''
       return this.setBarrier(r)
+    }
+    if (this.final) {
+      // Prøv først det valgte våben, så de andre. Den første forskrift, der kan læses, vælger våbnet
+      const parsers: Record<FinalMode, () => Aim | null> = {
+        laser: () => {
+          const r = parseLinear(this.input.value)
+          return r.ok && Math.abs(r.a) <= 20 && Math.abs(r.b) <= 50 ? { kind: 'line', a: r.a, b: r.b } : null
+        },
+        vertex: () => {
+          const r = parseParabola(this.input.value)
+          return r.ok && Math.abs(r.h) <= 50 && Math.abs(r.k) <= 50
+            ? { kind: 'parabola', a: r.a, h: r.h, k: r.k }
+            : null
+        },
+        exp: () => {
+          const r = parseExp(this.input.value)
+          return r.ok && r.a <= 20 && r.b <= 50 ? { kind: 'exp', a: r.a, b: r.b } : null
+        },
+      }
+      const order = [this.mode as FinalMode, ...FINAL_MODES.filter((m) => m !== this.mode)]
+      for (const m of order) {
+        const aim = parsers[m]()
+        if (aim) {
+          this.error.textContent = ''
+          return this.cb.onAim(aim)
+        }
+      }
+      this.error.textContent = 'Det kan jeg ikke læse. Skriv fx y = 2x + 1, y = −(x − 2)² + 9 eller y = 3 · 1,5^x'
+      return
     }
     if (isGrowth(this.mode)) {
       const exp = parseExp(this.input.value)
@@ -435,6 +506,9 @@ export class Controls {
     }
     if (ev.code === 'KeyM') return this.cb.onToggleSound()
     if (ev.code === 'KeyB' && !this.tools.hidden) return this.selectTool(this.mode === 'barrier' ? 'laser' : 'barrier')
+    if (this.final && ['Digit1', 'Digit2', 'Digit3'].includes(ev.code)) {
+      return this.selectWeapon(FINAL_MODES[Number(ev.code.slice(-1)) - 1])
+    }
     if (ev.code === 'KeyL' && !this.growthTools.hidden) {
       return this.selectGrowth(this.mode === 'growthLine' ? 'exp' : 'growthLine')
     }

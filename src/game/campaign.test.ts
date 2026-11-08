@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Aim } from '../math/path'
 import { isoWeek, weeklyChallenge } from './challenge'
 import { BARRIER_TIME, Game, HIT_RADIUS, type Enemy } from './game'
-import { LEVELS, WORLDS, weaponOf, type Level } from './levels'
+import { LEVELS, TRAINING, WORLDS, weaponOf, type Level } from './levels'
 import { bossRequirement, isUnlocked, recordLevel, worldStars, type Progress } from './progress'
 import { mulberry32 } from './rng'
 import { canHit, generateWave, isSolvable } from './waves'
@@ -39,11 +39,11 @@ function autoplayWave(game: Game, solution: Aim[]): void {
 }
 
 describe('hele kampagnen', () => {
-  it('har tre verdener med en boss til sidst i hver', () => {
-    expect(WORLDS.map((w) => w.weapon)).toEqual(['laser', 'grenade', 'rocket'])
+  it('har fire verdener med en boss til sidst i hver', () => {
+    expect(WORLDS.map((w) => w.weapon)).toEqual(['laser', 'grenade', 'rocket', 'final'])
     for (const world of WORLDS) {
       const levels = LEVELS.filter((l) => l.world === world.id)
-      expect(levels.length).toBeGreaterThanOrEqual(6)
+      expect(levels.length).toBeGreaterThanOrEqual(world.weapon === 'final' ? 4 : 6)
       expect(levels.at(-1)!.boss).toBe(true)
       expect(levels.filter((l) => l.boss).length).toBe(1)
     }
@@ -302,5 +302,58 @@ describe('raketten', () => {
     // Fra raketten tilbage til laseren nulstilles sigtet
     game.startLevel(LEVELS[0])
     expect(game.aim.kind).toBe('line')
+  })
+})
+
+describe('Finalen', () => {
+  it('blander linjer, buer og vækst, og våbnet følger funktionen', () => {
+    const level = levelById('finale-3')
+    const { game, solutions } = startKnown(level, 2)
+    expect(game.weapon).toBe('final')
+    expect(new Set(solutions.flat().map((s) => s.kind))).toEqual(new Set(['line', 'parabola', 'exp']))
+    // Laseren skyder tværs over sidebilledet, raketten fra y-aksen og mod højre
+    game.setAim({ kind: 'line', a: 0.5, b: 4 })
+    const line = game.path
+    expect(line.ok && [line.path.xa, line.path.xb]).toEqual([-8, 10])
+    game.setAim({ kind: 'exp', a: 2, b: 1 })
+    const rocket = game.path
+    expect(rocket.ok && rocket.path.xa).toBe(0)
+  })
+
+  it('Kernen kræver et nyt våben i hver fase', () => {
+    const boss = levelById('finale-boss')
+    for (const seed of [1, 7]) {
+      const { game, solutions } = startKnown(boss, seed)
+      autoplayWave(game, solutions[0])
+      game.nextWave()
+      const kinds: string[] = []
+      const outcomes: (string | null)[] = []
+      for (let i = 0; i < 3; i++) {
+        kinds.push(game.enemies.find((e) => e.alive && e.boss)!.boss!.kind)
+        const aim = solutions[1][i]
+        game.setAim(aim)
+        game.fire()
+        outcomes.push(game.completeShot().boss)
+      }
+      expect(kinds).toEqual(['twins', 'curve', 'colony'])
+      expect(solutions[1].map((s) => s.kind)).toEqual(['line', 'parabola', 'exp'])
+      expect(outcomes).toEqual(['hurt', 'hurt', 'defeated'])
+    }
+  })
+})
+
+describe('træningsbanen', () => {
+  it('giver nye mål og beholder pointene', () => {
+    for (const level of Object.values(TRAINING)) {
+      const { game, solutions } = startKnown(level, 3)
+      autoplayWave(game, solutions[0])
+      expect(game.phase).toBe('cleared')
+      const score = game.score
+      const before = JSON.stringify(game.enemies.map((e) => [e.x, e.y]))
+      game.rerollWave()
+      expect(game.phase).toBe('aiming')
+      expect(game.score).toBe(score)
+      expect(JSON.stringify(game.enemies.map((e) => [e.x, e.y]))).not.toBe(before)
+    }
   })
 })

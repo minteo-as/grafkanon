@@ -16,6 +16,7 @@ export interface Arena {
 const SIDE_LOOKS = {
   mountains: { grid: 0x6a3fb0, glow: 0xff7ad9, back: 0x12071f, ground: 0x1a0b2c, horizon: COLORS.neonPink },
   lab: { grid: 0x2a8a5c, glow: 0x9dffc4, back: 0x02110a, ground: 0x08190f, horizon: COLORS.liquid },
+  core: { grid: 0x8a1f3f, glow: 0xff6688, back: 0x0d0206, ground: 0x140409, horizon: COLORS.boss },
 }
 
 /** Gulv, gitter, akser med tal og kanten rundt om banen, med neonbyen omkring (Linjebyen). */
@@ -120,19 +121,19 @@ function buildCity(half: number): THREE.Group {
   let r = 7
   const rand = () => (r = (r * 9301 + 49297) % 233280) / 233280
   const spots: [number, number][] = []
-  // Bagved: flere rækker, der bliver højere jo længere væk
+  // Bagved: flere rækker, der bliver højere jo længere væk, med huller, så himlen kan ses imellem
   for (let row = 0; row < 3; row++) {
-    for (let x = -46; x <= 46; x += 4 + rand() * 3) spots.push([x, -(half + 7 + row * 7 + rand() * 3)])
+    for (let x = -46; x <= 46; x += 5 + rand() * 5) spots.push([x, -(half + 7 + row * 8 + rand() * 3)])
   }
   // På siderne
   for (const sx of [-1, 1]) {
     for (let z = -half - 2; z <= half - 2; z += 4 + rand() * 2) spots.push([sx * (half + 9 + rand() * 6), z])
   }
   for (const [x, z] of spots) {
-    const far = Math.min(1, Math.abs(z) / 30 + Math.abs(x) / 60)
+    const far = Math.min(1, Math.max(0, (Math.abs(z) - half - 6) / 20) + Math.abs(x) / 80)
     const w = 2.5 + rand() * 3
     const d = 2.5 + rand() * 3
-    const h = 4 + rand() * 10 + far * 14
+    const h = 4 + rand() * (6 + far * 12) + far * 10
     const map = textures[Math.floor(rand() * textures.length)].clone()
     map.repeat.set(Math.max(1, Math.round(w / 2.5)), Math.max(1, Math.round(h / 4)))
     map.needsUpdate = true
@@ -149,12 +150,19 @@ function buildCity(half: number): THREE.Group {
     building.position.set(x, h / 2 - 0.3, z)
     city.add(building)
     if (rand() < 0.45) {
-      const strip = new THREE.Mesh(
-        new THREE.BoxGeometry(w + 0.1, 0.12, d + 0.1),
-        neon[Math.floor(rand() * neon.length)],
-      )
-      strip.position.set(x, h - 0.3, z)
-      city.add(strip)
+      // Neonlister langs tagkanten (kun kanten, så taget ikke ligner en farvet plade)
+      const mat = neon[Math.floor(rand() * neon.length)]
+      const t = 0.1
+      for (const [sx, sz, lx, lz] of [
+        [0, d / 2, w, t],
+        [0, -d / 2, w, t],
+        [w / 2, 0, t, d],
+        [-w / 2, 0, t, d],
+      ]) {
+        const strip = new THREE.Mesh(new THREE.BoxGeometry(lx + t, 0.12, lz + t), mat)
+        strip.position.set(x + sx, h - 0.3, z + sz)
+        city.add(strip)
+      }
     }
   }
   // En stor solnedgangssol bag byen, som i en synthwave-plakat
@@ -172,8 +180,8 @@ export interface SideArenaOptions {
   plane?: Plane
   xFrom?: number
   xTo?: number
-  /** Bjerge (Parabelbjergene) eller glaskolber (Vækstlaboratoriet) i baggrunden. */
-  scenery?: 'mountains' | 'lab'
+  /** Bjerge (Parabelbjergene), glaskolber (Vækstlaboratoriet) eller Kernen (Finalen) i baggrunden. */
+  scenery?: 'mountains' | 'lab' | 'core'
 }
 
 /** Et lodret koordinatsystem med jorden som x-akse og kulisser i baggrunden. */
@@ -237,7 +245,7 @@ export function buildSideArena(half: number, top: number, opts: SideArenaOptions
   yName.position.copy(plane.toWorld(0.5, top + 0.5, 0.2))
   arena.add(xName, yName)
 
-  const scene = scenery === 'lab' ? buildLab() : buildMountains()
+  const scene = scenery === 'lab' ? buildLab() : scenery === 'core' ? buildCore() : buildMountains()
   arena.add(scene.group)
   return { group: arena, grid, animate: scene.animate }
 }
@@ -402,4 +410,65 @@ function buildLab(): { group: THREE.Group; animate: (dt: number) => void } {
     sporeGeo.attributes.position.needsUpdate = true
   }
   return { group: lab, animate }
+}
+
+/** Finalen: Kernen som et kæmpe roterende glitch-krystal og "dataregn", der falder i baggrunden. */
+function buildCore(): { group: THREE.Group; animate: (dt: number) => void } {
+  const group = new THREE.Group()
+  const crystal = (radius: number, color: number, strength: number) => {
+    const geo = new THREE.IcosahedronGeometry(radius, 1)
+    const solid = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x14030a, flatShading: true }))
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(geo),
+      new THREE.LineBasicMaterial({ color: hdr(color, strength) }),
+    )
+    const g = new THREE.Group()
+    g.add(solid, edges)
+    return g
+  }
+  const outer = crystal(15, COLORS.boss, 1.5)
+  outer.position.set(0, 12, -46)
+  const inner = crystal(6, 0xffb347, 2)
+  inner.position.set(0, 12, -38)
+  group.add(outer, inner)
+
+  // Dataregn: lodrette streger, der falder
+  const count = 140
+  const drops = new Float32Array(count * 6)
+  let r = 5
+  const rand = () => (r = (r * 9301 + 49297) % 233280) / 233280
+  const speeds: number[] = []
+  for (let i = 0; i < count; i++) {
+    const x = (rand() - 0.5) * 80
+    const y = rand() * 30
+    const z = -14 - rand() * 18
+    drops.set([x, y, z, x, y + 0.6 + rand() * 1.2, z], i * 6)
+    speeds.push(3 + rand() * 6)
+  }
+  const dropGeo = new THREE.BufferGeometry()
+  dropGeo.setAttribute('position', new THREE.BufferAttribute(drops, 3))
+  group.add(
+    new THREE.LineSegments(
+      dropGeo,
+      new THREE.LineBasicMaterial({ color: hdr(0xff5577, 1.3), transparent: true, opacity: 0.7 }),
+    ),
+  )
+
+  const animate = (dt: number) => {
+    outer.rotation.y += dt * 0.08
+    outer.rotation.x += dt * 0.03
+    inner.rotation.y -= dt * 0.25
+    inner.rotation.z += dt * 0.15
+    for (let i = 0; i < count; i++) {
+      const fall = speeds[i] * dt
+      drops[i * 6 + 1] -= fall
+      drops[i * 6 + 4] -= fall
+      if (drops[i * 6 + 4] < -1) {
+        drops[i * 6 + 1] += 32
+        drops[i * 6 + 4] += 32
+      }
+    }
+    dropGeo.attributes.position.needsUpdate = true
+  }
+  return { group, animate }
 }

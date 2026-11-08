@@ -69,17 +69,21 @@ export class Turret {
     this.group.position.copy(this.targetPosition)
   }
 
-  /** Stiller kanonen ved banens start og peger langs den. */
-  aimAlong(path: Path | null): void {
+  /**
+   * Stiller kanonen ved banens start og peger langs den. I sidebilledet står den på jorden ved
+   * granatens nulpunkt; ved linjer og raketter (onRail) kører den op ad en skinne til startpunktet.
+   */
+  aimAlong(path: Path | null, onRail = this.plane === GROWTH): void {
     if (!path) {
       this.park()
       return
     }
+    this.rail.visible = this.plane.view === 'side' && onRail
     const slope = (path.f(path.xa + 1e-3) - path.f(path.xa)) / 1e-3
     if (this.plane.view === 'floor') {
       const len = Math.hypot(1, slope)
       this.targetPosition = this.plane.toWorld(path.xa - 0.8 / len, path.f(path.xa) - (0.8 * slope) / len)
-    } else if (this.plane === GROWTH) {
+    } else if (onRail) {
       // Løbet skal sidde i startpunktet (0, b), så kanonen står lidt under og til venstre for det
       this.targetPosition = this.plane.toWorld(path.xa - 0.75, path.f(path.xa) - 0.55)
     } else {

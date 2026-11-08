@@ -17,13 +17,18 @@ export function distanceToLine(line: Line, x: number, y: number): number {
 
 /** Klipper linjen til kvadratet −half ≤ x, y ≤ half. Giver null, hvis linjen ikke går gennem banen. */
 export function clipToSquare(line: Line, half: number): Segment | null {
-  let xa = -half
-  let xb = half
+  return clipToRect(line, -half, half, -half, half)
+}
+
+/** Klipper linjen til rektanglet xMin ≤ x ≤ xMax, yMin ≤ y ≤ yMax. */
+export function clipToRect(line: Line, xMin: number, xMax: number, yMin: number, yMax: number): Segment | null {
+  let xa = xMin
+  let xb = xMax
   if (line.a === 0) {
-    if (Math.abs(line.b) > half) return null
+    if (line.b < yMin || line.b > yMax) return null
   } else {
-    const x1 = (-half - line.b) / line.a
-    const x2 = (half - line.b) / line.a
+    const x1 = (yMin - line.b) / line.a
+    const x2 = (yMax - line.b) / line.a
     xa = Math.max(xa, Math.min(x1, x2))
     xb = Math.min(xb, Math.max(x1, x2))
     if (xa > xb - 1e-6) return null

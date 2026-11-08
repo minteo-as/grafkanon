@@ -10,6 +10,7 @@ export const WORLDS: World[] = [
   { id: 1, name: 'Linjebyen', weapon: 'laser' },
   { id: 2, name: 'Parabelbjergene', weapon: 'grenade' },
   { id: 3, name: 'Vækstlaboratoriet', weapon: 'rocket' },
+  { id: 4, name: 'Finalen', weapon: 'final' },
 ]
 
 export interface Level {
@@ -47,6 +48,12 @@ const LOW_START = [1, 2, 3, 4]
 const HIGH_START = [6, 7, 8, 9, 10, 11]
 const LIN = [0.5, 1, 1.5, 2, -0.5, -1]
 const LIN_START = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+// Finalen: linjer, parabler og vækst i samme sidebillede
+const F_SLOPES = [0.5, 1, -0.5, -1, 1.5, -1.5, 2, -2]
+const F_ARCS = [-0.5, -1, -2]
+const F_GROW = [2, 1.5, 1.25]
+const F_DECAY = [0.5, 0.75, 0.8]
 
 export const LEVELS: Level[] = [
   {
@@ -783,4 +790,221 @@ export const LEVELS: Level[] = [
       },
     ],
   },
+  {
+    id: 'finale-1',
+    world: 4,
+    name: 'Hvilket våben?',
+    topic: 'Linjer, parabler og vækst blandet',
+    waves: [
+      {
+        groups: [
+          { count: 3, slopes: F_SLOPES },
+          { kind: 'arc', count: 3, as: F_ARCS, top: true },
+        ],
+        singles: 0,
+        spareShots: 1,
+        hint: 'Alle våben virker her. Ligger dronerne på en ret linje, en bue eller en vækstkurve? Skift våben med 1, 2 og 3.',
+      },
+      {
+        groups: [
+          { kind: 'arc', count: 3, as: F_ARCS },
+          { kind: 'growth', count: 3, as: F_GROW, bs: [1, 2], start: true },
+        ],
+        singles: 0,
+        spareShots: 1,
+        hint: 'Raketten starter på y-aksen og vokser mod højre. Granaten flyver i en bue fra jorden til jorden.',
+      },
+      {
+        groups: [
+          { count: 3, slopes: F_SLOPES },
+          { kind: 'growth', count: 3, as: F_DECAY, bs: [6, 8, 10] },
+          { kind: 'arc', count: 2, as: F_ARCS, top: true },
+        ],
+        singles: 0,
+        spareShots: 1,
+        hint: 'Tre slags kurver. Find dem én ad gangen.',
+      },
+    ],
+  },
+  {
+    id: 'finale-2',
+    world: 4,
+    name: 'Kryds og tværs',
+    topic: 'Find den rigtige funktion til hver gruppe',
+    waves: [
+      {
+        groups: [
+          { count: 3, slopes: F_SLOPES },
+          { count: 3, slopes: F_SLOPES },
+          { kind: 'growth', count: 3, as: F_GROW, bs: [1, 2] },
+        ],
+        singles: 1,
+        spareShots: 1,
+        hint: 'To linjer og en vækstkurve. Hvilke droner hører sammen?',
+      },
+      {
+        groups: [
+          { kind: 'arc', count: 3, as: F_ARCS, ground: true },
+          { kind: 'growth', count: 3, as: F_DECAY, bs: [6, 8, 10] },
+          { count: 3, slopes: F_SLOPES },
+        ],
+        singles: 0,
+        spareShots: 1,
+        hint: 'En af dronerne står på jorden i et nulpunkt.',
+      },
+      {
+        groups: [
+          { kind: 'arc', count: 3, as: F_ARCS },
+          { kind: 'arc', count: 3, as: F_ARCS },
+          { kind: 'growth', count: 3, as: [...F_GROW, ...F_DECAY], bs: [1, 2, 6, 8] },
+        ],
+        singles: 1,
+        spareShots: 1,
+        hint: 'To buer og en vækstkurve.',
+      },
+    ],
+  },
+  {
+    id: 'finale-3',
+    world: 4,
+    name: 'Generalprøven',
+    topic: 'Alt på én gang',
+    waves: [
+      {
+        groups: [
+          { count: 4, slopes: F_SLOPES },
+          { kind: 'arc', count: 3, as: F_ARCS },
+          { kind: 'growth', count: 3, as: F_GROW, bs: [1, 2] },
+        ],
+        singles: 0,
+        spareShots: 1,
+        hint: 'Fire på én linje giver mange point.',
+      },
+      {
+        groups: [
+          { count: 3, slopes: F_SLOPES },
+          { kind: 'arc', count: 3, as: F_ARCS, top: true },
+          { kind: 'growth', count: 3, as: F_DECAY, bs: [6, 8, 10] },
+        ],
+        singles: 1,
+        spareShots: 1,
+        hint: 'Linje, bue og henfald.',
+      },
+      {
+        groups: [
+          { count: 3, slopes: F_SLOPES },
+          { count: 3, slopes: F_SLOPES },
+          { kind: 'arc', count: 3, as: F_ARCS },
+          { kind: 'growth', count: 3, as: [...F_GROW, ...F_DECAY], bs: [1, 2, 8, 10] },
+        ],
+        singles: 0,
+        spareShots: 1,
+        hint: 'Fire grupper. Tag dig god tid.',
+      },
+    ],
+  },
+  {
+    id: 'finale-boss',
+    world: 4,
+    name: 'Kernen',
+    topic: 'Slutboss: ét våben til hver fase',
+    boss: true,
+    waves: [
+      {
+        groups: [
+          { count: 3, slopes: F_SLOPES },
+          { kind: 'arc', count: 3, as: F_ARCS },
+          { kind: 'growth', count: 3, as: F_GROW, bs: [1, 2] },
+        ],
+        singles: 1,
+        spareShots: 0,
+        hint: 'Ryd vejen til Kernen.',
+      },
+      {
+        groups: [],
+        singles: 0,
+        spareShots: 2,
+        boss: { kind: 'final', phases: 3, values: [] },
+        hint: 'Kernen skifter form: først to punkter på en linje, så en bue med det svage punkt i toppunktet, til sidst to punkter på en vækstkurve.',
+      },
+    ],
+  },
 ]
+
+const TRAINING_HINT = 'Træning: skyd løs. Der kommer nye mål, når du har ramt dem alle.'
+
+/** Træningsbanen: én bølge, der kommer igen med nye mål. Ingen stjerner, bare skyderi. */
+export const TRAINING: Record<Weapon, Level> = {
+  laser: {
+    id: 'traening-laser',
+    world: 1,
+    name: 'Træning',
+    topic: 'Laser',
+    waves: [
+      {
+        groups: [
+          { count: 3, slopes: [...WHOLE, ...HALF] },
+          { count: 2, slopes: ALL },
+        ],
+        singles: 1,
+        spareShots: 3,
+        hint: TRAINING_HINT,
+      },
+    ],
+  },
+  grenade: {
+    id: 'traening-granat',
+    world: 2,
+    name: 'Træning',
+    topic: 'Granatkaster',
+    waves: [
+      {
+        groups: [
+          { kind: 'arc', count: 3, as: ARC_AS, top: true },
+          { kind: 'arc', count: 3, as: ARC_AS, ground: true },
+        ],
+        singles: 1,
+        spareShots: 3,
+        walls: 1,
+        hint: TRAINING_HINT,
+      },
+    ],
+  },
+  rocket: {
+    id: 'traening-raket',
+    world: 3,
+    name: 'Træning',
+    topic: 'Raket',
+    waves: [
+      {
+        groups: [
+          { kind: 'growth', count: 3, as: GROW, bs: LOW_START },
+          { kind: 'growth', count: 3, as: DECAY, bs: HIGH_START },
+          { kind: 'growth', count: 3, as: LIN, bs: LIN_START, linear: true },
+        ],
+        singles: 0,
+        spareShots: 3,
+        linear: true,
+        hint: TRAINING_HINT,
+      },
+    ],
+  },
+  final: {
+    id: 'traening-alle',
+    world: 4,
+    name: 'Træning',
+    topic: 'Alle våben',
+    waves: [
+      {
+        groups: [
+          { count: 3, slopes: F_SLOPES },
+          { kind: 'arc', count: 3, as: F_ARCS },
+          { kind: 'growth', count: 3, as: [...F_GROW, ...F_DECAY], bs: [1, 2, 6, 8] },
+        ],
+        singles: 1,
+        spareShots: 3,
+        hint: TRAINING_HINT,
+      },
+    ],
+  },
+}

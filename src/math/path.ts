@@ -1,6 +1,6 @@
 // Våbnenes baner gennem koordinatsystemet: laserens rette linje, granatens bue og rakettens vækstkurve.
 
-import { clipToSquare, distanceToLine } from './line'
+import { clipToRect, clipToSquare, distanceToLine } from './line'
 
 export type Aim =
   | { kind: 'line'; a: number; b: number }
@@ -142,6 +142,22 @@ export function computeGrowthPath(aim: Aim, width: number, top: number): PathRes
     }
   } else if (aim.a > 1) xb = Math.min(width, Math.log(top / aim.b) / Math.log(aim.a))
   return { ok: true, path: { xa: 0, xb, f, end, distanceTo: (x, y) => curveDistance(f, 0, xb, x, y) } }
+}
+
+/** Laseren i Finalens sidebillede: en ret linje tværs over fra venstre mod højre, mellem jorden og toppen. */
+export function computeSideLinePath(aim: Aim, half: number, top: number): PathResult {
+  if (aim.kind !== 'line') return { ok: false, reason: 'outside' }
+  const seg = clipToRect(aim, -half, half, 0, top)
+  if (!seg) return { ok: false, reason: 'outside' }
+  return {
+    ok: true,
+    path: {
+      ...seg,
+      f: aimFunction(aim),
+      end: 'edge',
+      distanceTo: (x, y) => (x >= seg.xa - 0.5 && x <= seg.xb + 0.5 ? distanceToLine(aim, x, y) : Infinity),
+    },
+  }
 }
 
 /** Punkter langs banen, fx til sigtelinjen og granatens spor. */

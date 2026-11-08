@@ -40,12 +40,16 @@ export function weeklyChallenge(date: Date = new Date()): Challenge {
   const week = isoWeek(date)
   const seed = Math.imul(week.year * 100 + week.week, 0x9e3779b1) >>> 0
   const rng = mulberry32(seed)
-  const world = WORLDS[week.week % WORLDS.length]
+  const world = WORLDS[(week.week - 1) % WORLDS.length]
   // Almindelig form (abc) styres anderledes end resten af verdenen, så den er ikke med
   const pool = LEVELS.filter((l) => l.world === world.id && !l.boss && !l.form)
   const chosen = shuffle([...pool], rng)
     .slice(0, WAVES)
     .sort((a, b) => LEVELS.indexOf(a) - LEVELS.indexOf(b))
+  const waves = chosen.map((l) => pick(l.waves, rng))
+  // Har verdenen færre end fire almindelige baner (Finalen), tages der ekstra bølger fra de samme baner
+  const spare = chosen.flatMap((l) => l.waves).filter((w) => !waves.includes(w))
+  while (waves.length < WAVES && spare.length) waves.push(spare.splice(Math.floor(rng() * spare.length), 1)[0])
   const id = `uge-${week.year}-${String(week.week).padStart(2, '0')}`
   return {
     week,
@@ -55,7 +59,7 @@ export function weeklyChallenge(date: Date = new Date()): Challenge {
       world: world.id,
       name: 'Ugens udfordring',
       topic: `Uge ${week.week} · ${world.name}`,
-      waves: chosen.map((l) => pick(l.waves, rng)),
+      waves,
     },
   }
 }

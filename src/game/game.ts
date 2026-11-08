@@ -63,6 +63,7 @@ export interface LevelResult {
 export function defaultAim(weapon: Weapon): Aim {
   if (weapon === 'grenade') return { kind: 'parabola', a: -1, h: 0, k: 6 }
   if (weapon === 'rocket') return { kind: 'exp', a: 2, b: 1 }
+  if (weapon === 'final') return { kind: 'line', a: 0.5, b: 4 }
   return { kind: 'line', a: 1, b: 0 }
 }
 
@@ -188,6 +189,11 @@ export class Game {
     this.score = 0
     this.results = []
     this.startWave(0)
+  }
+
+  /** Samme bølge med nye mål. Pointene beholdes (bruges på træningsbanen). */
+  rerollWave(): void {
+    this.startWave(this.waveIndex)
   }
 
   nextWave(): void {

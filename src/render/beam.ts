@@ -43,6 +43,7 @@ export class Beam {
   private group = new THREE.Group()
   private glow: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>
   private shot: Shot | null = null
+  private plane: Plane = FLOOR
   private t = 0
 
   constructor(scene: THREE.Scene) {
@@ -65,10 +66,13 @@ export class Beam {
     scene.add(this.group)
   }
 
-  start(shot: Shot): void {
+  /** Laseren skyder på gulvet i Linjebyen og i sidebilledet i Finalen. */
+  start(shot: Shot, plane: Plane = FLOOR): void {
     this.shot = shot
+    this.plane = plane
     this.t = 0
     this.group.visible = true
+    this.group.rotation.set(0, 0, 0)
   }
 
   /** Giver strålens forreste x-værdi, og om animationen er færdig. */
@@ -78,11 +82,14 @@ export class Beam {
     this.t += dt
     const { xa, xb, f } = shot.path
     const headX = xa + (xb - xa) * Math.min(1, this.t / GROW)
-    const from = FLOOR.toWorld(xa, f(xa), LASER_HEIGHT)
-    const to = FLOOR.toWorld(headX, f(headX), LASER_HEIGHT)
+    const lift = liftFor(this.plane)
+    const from = this.plane.toWorld(xa, f(xa), lift)
+    const to = this.plane.toWorld(headX, f(headX), lift)
     const fade = this.t > GROW ? Math.max(0, 1 - (this.t - GROW) / FADE) : 1
     this.group.position.copy(from).lerp(to, 0.5)
-    this.group.rotation.y = Math.atan2(f(xa + 1) - f(xa), 1)
+    const angle = Math.atan2(f(xa + 1) - f(xa), 1)
+    if (this.plane.view === 'floor') this.group.rotation.y = angle
+    else this.group.rotation.z = angle
     const thickness = 0.3 + 0.7 * fade
     this.group.scale.set(Math.max(0.001, from.distanceTo(to)), thickness, thickness)
     this.glow.material.opacity = 0.3 * fade

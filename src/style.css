@@ -308,6 +308,9 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
+.tools.three {
+  grid-template-columns: repeat(3, 1fr);
+}
 .tool {
   font-family: var(--f-body);
   font-weight: 700;
@@ -621,6 +624,16 @@ kbd {
 .level:focus-visible {
   outline: 2px solid var(--aim);
   outline-offset: 2px;
+}
+/* Træningsbanen: en knap pr. våben */
+.training {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+}
+.training .btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 /* Ugens udfordring skiller sig ud fra kampagnens baner */
 .level.challenge {

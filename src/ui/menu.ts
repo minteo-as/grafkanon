@@ -1,11 +1,13 @@
 import { daysUntilNext, type Challenge } from '../game/challenge'
 import { LEVELS, WORLDS } from '../game/levels'
+import type { Weapon } from '../game/waves'
 import { bossRequirement, isUnlocked, worldStars, type Progress } from '../game/progress'
 import { fmtScore } from './hud'
 
 export interface MenuCallbacks {
   onPlay(levelIndex: number): void
   onChallenge(): void
+  onTraining(weapon: Weapon): void
   onContinue(): void
   onToggleSound(): void
 }
@@ -61,6 +63,7 @@ export class Menu {
     })
     this.list.replaceChildren(
       this.challengeSection(progress, challenge),
+      this.trainingSection(progress),
       ...WORLDS.map((world) => {
         const section = document.createElement('section')
         const title = document.createElement('h2')
@@ -85,6 +88,33 @@ export class Menu {
       ? this.continueButton
       : this.list.querySelector<HTMLButtonElement>('.levels button:not(:disabled)')
     focusTarget?.focus({ preventScroll: true })
+  }
+
+  /** Træningsbanen: frit skyderi med de våben, man har låst op (en verdens første bane er åben). */
+  private trainingSection(progress: Progress): HTMLElement {
+    const section = document.createElement('section')
+    const title = document.createElement('h2')
+    title.className = 'world-title'
+    title.textContent = 'Træningsbanen'
+    const row = document.createElement('div')
+    row.className = 'training'
+    const names: Record<Weapon, string> = { laser: 'Laser', grenade: 'Granat', rocket: 'Raket', final: 'Alle våben' }
+    for (const world of WORLDS) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'btn'
+      button.textContent = names[world.weapon]
+      const unlocked = isUnlocked(
+        progress,
+        LEVELS.findIndex((l) => l.world === world.id),
+      )
+      button.disabled = !unlocked
+      if (!unlocked) button.title = `Åbner, når du når ${world.name}`
+      button.addEventListener('click', () => this.cb.onTraining(world.weapon))
+      row.append(button)
+    }
+    section.append(title, row)
+    return section
   }
 
   /** Kortet med ugens udfordring står øverst og er altid åbent. */

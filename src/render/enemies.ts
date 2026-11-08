@@ -469,7 +469,12 @@ export class EnemyLayer {
     if (this.speech) {
       this.speech.timeLeft -= dt
       const anchor = this.twinBodies[0]?.mesh.position ?? this.curve?.mesh.position
-      if (anchor) this.speech.sprite.position.copy(anchor).add(new THREE.Vector3(0, 2.1, 0.5))
+      if (anchor) {
+        // Boblen holdes inden for banen, så den ikke bliver skåret af ved kanten
+        const room = Math.max(0, 10.5 - this.speech.sprite.scale.x / 2)
+        this.speech.sprite.position.copy(anchor).add(new THREE.Vector3(0, 2.1, 0.5))
+        this.speech.sprite.position.x = THREE.MathUtils.clamp(this.speech.sprite.position.x, -room, room)
+      }
       this.speech.sprite.visible = !!anchor
       const fadeIn = Math.min(1, (3.2 - this.speech.timeLeft) * 6)
       this.speech.sprite.material.opacity = Math.min(fadeIn, this.speech.timeLeft * 3)
