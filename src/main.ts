@@ -295,6 +295,7 @@ async function main(): Promise<void> {
       }
       shot = game.fire()
       if (!shot) return
+      world.resetOrbit()
       killed = 0
       enemies.setTargeted([])
       // Rammer skuddet de sidste glitches, uden at nye dukker op bagefter?

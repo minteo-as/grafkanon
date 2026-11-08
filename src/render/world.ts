@@ -141,6 +141,13 @@ function skyTexture(theme: Theme): THREE.CanvasTexture {
   return texture
 }
 
+// Man kan dreje kameraet ved at trække på spillepladen, men kun et stykke, og det glider tilbage
+const ORBIT_YAW = 0.6 // ca. 35° til hver side
+const ORBIT_PITCH = 0.28 // ca. 16° op og ned
+const ORBIT_SPEED = 0.0035 // radianer pr. pixel, man trækker
+const ORBIT_RETURN_DELAY = 1 // sekunder efter man slipper
+const DRAG_THRESHOLD = 4 // pixels, før et tryk tæller som et træk
+
 // Gløden slås fra, hvis computeren ikke kan følge med (fx en ældre Chromebook)
 const SLOW_FRAME = 1 / 32
 const SAMPLE_FRAMES = 120
@@ -156,6 +163,11 @@ export class World {
   private composer: EffectComposer | null = null
   private bloom: UnrealBloomPass | null = null
   private frameTimes: number[] = []
+  private orbit = { yaw: 0, pitch: 0 }
+  private drag: { id: number; x: number; y: number; moved: boolean } | null = null
+  private sinceRelease = Infinity
+  private spherical = new THREE.Spherical()
+  private offset = new THREE.Vector3()
 
   constructor(private container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -163,6 +175,7 @@ export class World {
     const coarse = matchMedia('(pointer: coarse)').matches
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2))
     container.prepend(this.renderer.domElement)
+    this.listenForDrag(this.renderer.domElement)
 
     this.scene.background = new THREE.Color(COLORS.bg)
     this.scene.fog = new THREE.Fog(COLORS.bg, 38, 70)
@@ -203,11 +216,63 @@ export class World {
     this.trauma = Math.min(1, this.trauma + amount)
   }
 
+  /** Kameraet glider tilbage til den normale vinkel med det samme, fx når man skyder. */
+  resetOrbit(): void {
+    if (!this.drag) this.sinceRelease = Infinity
+  }
+
+  private listenForDrag(el: HTMLElement): void {
+    el.style.touchAction = 'none'
+    el.style.cursor = 'grab'
+    el.addEventListener('pointerdown', (ev) => {
+      if (this.drag || (ev.pointerType === 'mouse' && ev.button !== 0)) return
+      this.drag = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, moved: false }
+      el.setPointerCapture(ev.pointerId)
+      el.style.cursor = 'grabbing'
+    })
+    el.addEventListener('pointermove', (ev) => {
+      const d = this.drag
+      if (!d || d.id !== ev.pointerId) return
+      const dx = ev.clientX - d.x
+      const dy = ev.clientY - d.y
+      if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
+      d.moved = true
+      d.x = ev.clientX
+      d.y = ev.clientY
+      const clamp = THREE.MathUtils.clamp
+      this.orbit.yaw = clamp(this.orbit.yaw - dx * ORBIT_SPEED, -ORBIT_YAW, ORBIT_YAW)
+      this.orbit.pitch = clamp(this.orbit.pitch + dy * ORBIT_SPEED, -ORBIT_PITCH, ORBIT_PITCH)
+    })
+    const end = (ev: PointerEvent) => {
+      if (!this.drag || this.drag.id !== ev.pointerId) return
+      this.drag = null
+      this.sinceRelease = 0
+      el.style.cursor = 'grab'
+    }
+    el.addEventListener('pointerup', end)
+    el.addEventListener('pointercancel', end)
+  }
+
   render(dt: number): void {
     this.trauma = Math.max(0, this.trauma - dt * 2.5)
     const s = this.trauma * this.trauma * 0.35
+    // Efter et sekund glider kameraet blødt tilbage
+    this.sinceRelease += dt
+    if (!this.drag && this.sinceRelease > ORBIT_RETURN_DELAY) {
+      const k = 1 - Math.exp(-dt * 4)
+      this.orbit.yaw -= this.orbit.yaw * k
+      this.orbit.pitch -= this.orbit.pitch * k
+    }
+    // Drej kameraet rundt om det punkt, det kigger på. Det kommer aldrig lavere end ca. 8° over
+    // vandret (eller standardvinklen, hvis den er lavere) og aldrig helt lodret ned
+    this.offset.copy(this.basePosition).sub(this.lookTarget)
+    this.spherical.setFromVector3(this.offset)
+    this.spherical.theta += this.orbit.yaw
+    const basePhi = this.spherical.phi
+    this.spherical.phi = THREE.MathUtils.clamp(basePhi - this.orbit.pitch, 0.15, Math.max(1.43, basePhi))
     this.camera.position
-      .copy(this.basePosition)
+      .setFromSpherical(this.spherical)
+      .add(this.lookTarget)
       .add(new THREE.Vector3((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, (Math.random() - 0.5) * s))
     this.camera.lookAt(this.lookTarget)
     if (this.composer) {
