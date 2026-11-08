@@ -1,5 +1,6 @@
 import type { Game } from '../game/game'
 import { fmtNum } from '../math/format'
+import { prefersReducedMotion } from '../render/world'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 
@@ -39,6 +40,9 @@ export class Hud {
   private overlayStars = $('overlayStars')
   private overlayButtons = $('overlayButtons')
   private toastTimer = 0
+  private comboEl = $('combo')
+  private flashEl = $('flash')
+  private shownScore = 0
   private starTimers: number[] = []
   private shownMarch = ''
 
@@ -53,6 +57,8 @@ export class Hud {
     this.ammo.textContent = '●'.repeat(game.ammo) + '○'.repeat(used)
     this.ammo.setAttribute('aria-label', `${game.ammo} af ${game.ammoTotal} skud tilbage`)
     this.score.textContent = fmtScore(game.score)
+    if (game.score > this.shownScore) this.restart(this.score.parentElement!, 'bump')
+    this.shownScore = game.score
     this.mult.textContent = '×' + fmtNum(game.multiplier)
     const next = game.nextMultiplier
     this.multNext.hidden = next === game.multiplier
@@ -72,6 +78,27 @@ export class Hud {
     this.shownMarch = text
     this.marchChip.hidden = t === null
     this.marchTime.textContent = text
+  }
+
+  /** Stor kombo-tekst midt på skærmen, når flere rammes i samme skud. */
+  combo(hits: number): void {
+    const words = ['', '', 'DOBBELT!', 'TRIPPEL!', 'MEGA-KOMBO!']
+    this.comboEl.textContent = words[hits] ?? 'MONSTER-KOMBO!'
+    this.comboEl.dataset.level = String(Math.min(hits, 5))
+    this.restart(this.comboEl, 'show')
+  }
+
+  /** Kort lysglimt over hele billedet, fx når bølgens sidste glitch rammes. */
+  flash(): void {
+    if (prefersReducedMotion()) return
+    this.restart(this.flashEl, 'show')
+  }
+
+  /** Starter en CSS-animation forfra, også hvis den allerede kører. */
+  private restart(el: HTMLElement, cls: string): void {
+    el.classList.remove(cls)
+    void el.offsetWidth
+    el.classList.add(cls)
   }
 
   hint(text: string): void {

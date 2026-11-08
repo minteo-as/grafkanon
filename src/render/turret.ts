@@ -55,6 +55,11 @@ export class Turret {
     this.group.position.copy(this.targetPosition)
   }
 
+  /** Hvor kanonen står lige nu. Glitchernes øjne følger den. */
+  get position(): THREE.Vector3 {
+    return this.group.position
+  }
+
   setPlane(plane: Plane): void {
     this.plane = plane
     this.rail.visible = plane === GROWTH

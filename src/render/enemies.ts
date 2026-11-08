@@ -12,10 +12,21 @@ const DIE_TIME = 0.3
 const HOP_TIME = 0.25
 const TWIN_BODY_HEIGHT = 3.2
 
+/** To øjne, der følger kanonen, blinker og spærres op, når sigtet går igennem glitchen. */
+interface Face {
+  group: THREE.Group
+  eyes: THREE.Mesh[]
+  pupils: THREE.Mesh[]
+  nextBlink: number
+  blink: number // > 0 mens øjnene er lukket
+  fear: number // 0 = rolig, 1 = rædselsslagen
+}
+
 interface View {
   group: THREE.Group
   baseY: number // kroppens højde over punktet
   body: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
+  face: Face
   label: THREE.Sprite
   labelColors: [string, string]
   spin: number
@@ -40,6 +51,62 @@ const ringGeo = new THREE.RingGeometry(0.32, 0.46, 20)
 const arrowGeo = new THREE.ConeGeometry(0.2, 0.45, 3)
 const rotorGeo = new THREE.TorusGeometry(0.62, 0.05, 6, 24)
 const bossBodyGeo = new THREE.OctahedronGeometry(1.1, 0)
+const eyeGeo = new THREE.SphereGeometry(0.13, 14, 10)
+const pupilGeo = new THREE.SphereGeometry(0.07, 10, 8)
+const browGeo = new THREE.BoxGeometry(0.34, 0.07, 0.06)
+const eyeMat = new THREE.MeshBasicMaterial({ color: 0xe9eef8 })
+const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0b0918 })
+const BLINK_TIME = 0.12
+
+/** Øjne (og vrede bryn på bosser). Ansigtet drejes mod kameraet hver frame. */
+function makeFace(scale: number, angry: boolean): Face {
+  const group = new THREE.Group()
+  const eyes: THREE.Mesh[] = []
+  const pupils: THREE.Mesh[] = []
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(eyeGeo, eyeMat)
+    eye.position.set(side * 0.16 * scale, 0.04 * scale, 0)
+    eye.scale.setScalar(scale)
+    const pupil = new THREE.Mesh(pupilGeo, pupilMat)
+    pupil.position.z = 0.09
+    eye.add(pupil)
+    group.add(eye)
+    eyes.push(eye)
+    pupils.push(pupil)
+    if (angry) {
+      const brow = new THREE.Mesh(browGeo, pupilMat)
+      brow.scale.setScalar(scale)
+      brow.position.set(side * 0.16 * scale, 0.24 * scale, 0.08 * scale)
+      brow.rotation.z = side * -0.45
+      group.add(brow)
+    }
+  }
+  return { group, eyes, pupils, nextBlink: 1 + Math.random() * 4, blink: 0, fear: 0 }
+}
+
+const _local = new THREE.Vector3()
+
+/** Drejer ansigtet mod kameraet, lader pupillerne kigge mod målet og styrer blink og frygt. */
+function animateFace(face: Face, dt: number, camera: THREE.Vector3, target: THREE.Vector3, scared: boolean): void {
+  face.group.lookAt(camera)
+  face.fear += ((scared ? 1 : 0) - face.fear) * Math.min(1, dt * 10)
+  face.nextBlink -= dt
+  if (face.nextBlink <= 0) {
+    face.blink = BLINK_TIME
+    face.nextBlink = 2 + Math.random() * 4
+  }
+  face.blink = Math.max(0, face.blink - dt)
+  _local.copy(target)
+  face.group.worldToLocal(_local)
+  _local.z = 0
+  if (_local.lengthSq() > 1e-6) _local.normalize().multiplyScalar(0.045)
+  const open = face.blink > 0 ? 0.12 : 1 + face.fear * 0.35
+  for (const eye of face.eyes) eye.scale.set(eye.scale.x, eye.scale.x * open, eye.scale.z)
+  for (const pupil of face.pupils) {
+    pupil.position.set(_local.x, _local.y, 0.09)
+    pupil.scale.setScalar(1 - face.fear * 0.45)
+  }
+}
 
 const easeOutBack = (t: number) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2
 
@@ -78,8 +145,12 @@ export class EnemyLayer {
   // Bossernes ekstra dele: Tvillingens og Koloniens krop og bånd, Kurvens bane og krop
   private decor = new THREE.Group()
   private decorDirty = false
-  private twinBodies: { mesh: THREE.Mesh; baseY: number }[] = []
-  private curve: { mesh: THREE.Mesh; points: THREE.Vector3[] } | null = null
+  private twinBodies: { mesh: THREE.Mesh; baseY: number; face: Face }[] = []
+  private curve: { mesh: THREE.Mesh; points: THREE.Vector3[]; face: Face } | null = null
+  private targeted = new Set<number>()
+  private camera = new THREE.Vector3(0, 20, 20)
+  private lookTarget = new THREE.Vector3()
+  private speech: { sprite: THREE.Sprite; timeLeft: number } | null = null
 
   constructor(
     private scene: THREE.Scene,
@@ -107,6 +178,26 @@ export class EnemyLayer {
     this.decorDirty = true
   }
 
+  /** Glitches, som sigtet lige nu går igennem. De bliver bange. */
+  setTargeted(ids: Iterable<number>): void {
+    this.targeted = new Set(ids)
+  }
+
+  /** Hvor kameraet står (ansigterne vender mod det), og hvad pupillerne kigger på (kanonen). */
+  setLook(camera: THREE.Vector3, target: THREE.Vector3): void {
+    this.camera.copy(camera)
+    this.lookTarget.copy(target)
+  }
+
+  /** Bossen siger noget i en taleboble over sin krop. */
+  say(text: string, seconds = 3.2): void {
+    this.clearSpeech()
+    const sprite = textSprite(text, { color: '#2a0a1c', background: '#ffe0ec', height: 0.62 })
+    sprite.renderOrder = 10
+    this.scene.add(sprite)
+    this.speech = { sprite, timeLeft: seconds }
+  }
+
   setCoordinatesVisible(visible: boolean): void {
     this.showCoordinates = visible
     for (const v of this.views.values()) if (v.dying === 0) v.label.visible = visible
@@ -118,6 +209,7 @@ export class EnemyLayer {
     if (!v || v.dying > 0) return
     v.dying = 1e-4
     v.label.visible = false
+    v.face.group.visible = false
     const at = v.group.position.clone().add(new THREE.Vector3(0, v.baseY, 0))
     this.effects.explosion(at, v.color, this.plane.view)
     this.effects.floatingText(at, pointsText, '#ffd166')
@@ -142,7 +234,7 @@ export class EnemyLayer {
       v.group.add(v.label)
     }
 
-    for (const v of this.views.values()) {
+    for (const [id, v] of this.views) {
       v.age += dt
       if (v.hopT < 1) {
         v.hopT = Math.min(1, v.hopT + dt / HOP_TIME)
@@ -152,11 +244,17 @@ export class EnemyLayer {
       if (v.dying === 0) {
         const t = Math.min(1, Math.max(0, (v.age - v.delay) / SPAWN_TIME))
         v.group.scale.setScalar(Math.max(0.001, easeOutBack(t)))
+        const scared = this.targeted.has(id)
         if (!this.reduced) {
           v.body.position.y = v.baseY + Math.sin(this.time * 2.2 + v.phase) * 0.08
           v.body.rotation.y += dt * v.spin
           v.body.rotation.x += dt * 0.4
+          // En bange glitch ryster
+          if (v.face.fear > 0.05) v.body.position.x = Math.sin(this.time * 70 + v.phase) * 0.05 * v.face.fear
+          else v.body.position.x = 0
         }
+        v.face.group.position.set(v.body.position.x, v.body.position.y, 0)
+        animateFace(v.face, dt, this.camera, this.lookTarget, scared)
       } else if (v.group.visible) {
         v.dying += dt
         v.body.scale.setScalar(1 + v.dying * 4)
@@ -237,6 +335,12 @@ export class EnemyLayer {
       group.add(badge)
     }
 
+    // Ansigtet sidder foran kroppen og drejes mod kameraet
+    const face = makeFace(e.boss ? 1.25 : 1, !!e.boss)
+    face.eyes.forEach((eye) => (eye.position.z = 0.36))
+    face.group.position.y = baseY
+    group.add(face.group)
+
     const colors = labelColors(e)
     const label = makeLabel(e.x, e.y, colors)
     label.position.y = baseY + 0.85
@@ -249,6 +353,7 @@ export class EnemyLayer {
       baseY,
       color: look.color,
       body,
+      face,
       label,
       labelColors: colors,
       spin: look.spin,
@@ -301,8 +406,11 @@ export class EnemyLayer {
       body.position.copy(p).lerp(q, 0.5)
       if (side) body.position.y = Math.max(p.y, q.y) + 2.4
       else body.position.y = TWIN_BODY_HEIGHT
-      this.twinBodies.push({ mesh: body, baseY: body.position.y })
-      this.decor.add(tether, body)
+      const face = makeFace(2.6, true)
+      face.eyes.forEach((eye) => (eye.position.z = 0.95))
+      face.group.position.copy(body.position)
+      this.twinBodies.push({ mesh: body, baseY: body.position.y, face })
+      this.decor.add(tether, body, face.group)
     }
 
     // Kurven: dens bane som stiplet linje og en krop, der flyver frem og tilbage langs den
@@ -332,16 +440,20 @@ export class EnemyLayer {
           new THREE.MeshStandardMaterial({ color: COLORS.bossBody, emissive: COLORS.bossGlow, flatShading: true }),
         )
         mesh.scale.setScalar(0.95)
-        this.curve = { mesh, points }
-        this.decor.add(line, mesh)
+        const face = makeFace(2.4, true)
+        face.eyes.forEach((eye) => (eye.position.z = 0.9))
+        this.curve = { mesh, points, face }
+        this.decor.add(line, mesh, face.group)
       }
     }
   }
 
   private animateDecor(dt: number): void {
-    for (const { mesh, baseY } of this.twinBodies) {
+    for (const { mesh, baseY, face } of this.twinBodies) {
       mesh.rotation.y += dt * 0.8
       if (!this.reduced) mesh.position.y = baseY + Math.sin(this.time * 1.5) * 0.2
+      face.group.position.copy(mesh.position)
+      animateFace(face, dt, this.camera, this.lookTarget, false)
     }
     if (this.curve) {
       // Frem og tilbage langs banen på 5 sekunder; den ligger stille, hvis man har slået bevægelse fra
@@ -350,7 +462,26 @@ export class EnemyLayer {
       const i = Math.min(pts.length - 2, Math.floor(u * (pts.length - 1)))
       this.curve.mesh.position.lerpVectors(pts[i], pts[i + 1], u * (pts.length - 1) - i).setZ(-0.6)
       this.curve.mesh.rotation.y += dt
+      this.curve.face.group.position.copy(this.curve.mesh.position)
+      animateFace(this.curve.face, dt, this.camera, this.lookTarget, false)
     }
+    // Talebobben følger bossens krop
+    if (this.speech) {
+      this.speech.timeLeft -= dt
+      const anchor = this.twinBodies[0]?.mesh.position ?? this.curve?.mesh.position
+      if (anchor) this.speech.sprite.position.copy(anchor).add(new THREE.Vector3(0, 2.1, 0.5))
+      this.speech.sprite.visible = !!anchor
+      const fadeIn = Math.min(1, (3.2 - this.speech.timeLeft) * 6)
+      this.speech.sprite.material.opacity = Math.min(fadeIn, this.speech.timeLeft * 3)
+      if (this.speech.timeLeft <= 0) this.clearSpeech()
+    }
+  }
+
+  private clearSpeech(): void {
+    if (!this.speech) return
+    this.scene.remove(this.speech.sprite)
+    disposeSprite(this.speech.sprite)
+    this.speech = null
   }
 
   private remove(v: View): void {

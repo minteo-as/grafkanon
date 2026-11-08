@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { Shot } from '../game/game'
 import { samplePath, type Path } from '../math/path'
-import { COLORS, FLOOR, type Plane } from './world'
+import { COLORS, FLOOR, hdr, type Plane } from './world'
 
 const LASER_HEIGHT = 0.6
 const GROW = 0.45
@@ -48,12 +48,12 @@ export class Beam {
   constructor(scene: THREE.Scene) {
     const core = new THREE.Mesh(
       new THREE.BoxGeometry(1, 0.09, 0.09),
-      new THREE.MeshBasicMaterial({ color: COLORS.beamCore }),
+      new THREE.MeshBasicMaterial({ color: hdr(COLORS.beamCore, 3) }),
     )
     this.glow = new THREE.Mesh(
       new THREE.BoxGeometry(1, 0.38, 0.38),
       new THREE.MeshBasicMaterial({
-        color: COLORS.beam,
+        color: hdr(COLORS.beam, 2),
         transparent: true,
         opacity: 0.3,
         blending: THREE.AdditiveBlending,

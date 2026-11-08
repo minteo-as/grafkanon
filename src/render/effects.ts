@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { disposeSprite, textSprite } from './labels'
-import type { View } from './world'
+import { hdr, type View } from './world'
 
 interface Effect {
   object: THREE.Object3D
@@ -26,7 +26,7 @@ export class Effects {
     const flash = new THREE.Mesh(
       flashGeo,
       new THREE.MeshBasicMaterial({
-        color: 0xfff4d6,
+        color: hdr(0xfff4d6, 1.5),
         transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
@@ -47,7 +47,7 @@ export class Effects {
     const ring = new THREE.Mesh(
       ringGeo,
       new THREE.MeshBasicMaterial({
-        color,
+        color: hdr(color, 2),
         transparent: true,
         side: THREE.DoubleSide,
         depthWrite: false,
@@ -69,7 +69,10 @@ export class Effects {
     )
 
     // Splinter i to farver
-    const mats = [new THREE.MeshBasicMaterial({ color }), new THREE.MeshBasicMaterial({ color: 0xffd166 })]
+    const mats = [
+      new THREE.MeshBasicMaterial({ color: hdr(color, 2) }),
+      new THREE.MeshBasicMaterial({ color: hdr(0xffd166, 2) }),
+    ]
     for (let i = 0; i < 18; i++) {
       const shard = new THREE.Mesh(shardGeo, mats[i % 2])
       shard.position.copy(at)
@@ -105,15 +108,19 @@ export class Effects {
     )
   }
 
-  /** Tekst, der stiger op og forsvinder, fx "+300". */
+  /** Tekst, der springer frem, stiger op og forsvinder, fx "+300". */
   floatingText(at: THREE.Vector3, text: string, color: string): void {
-    const sprite = textSprite(text, { color, height: 0.75 })
+    const sprite = textSprite(text, { color, height: 0.9 })
     sprite.position.copy(at).add(new THREE.Vector3(0, 0.6, 0))
     const startY = sprite.position.y
+    const base = sprite.scale.clone()
     this.add(
       sprite,
-      0.9,
+      1,
       (e, _dt, t) => {
+        // Springer op i overstørrelse og falder på plads
+        const pop = t < 0.12 ? 0.4 + (t / 0.12) * 0.95 : t < 0.26 ? 1.35 - ((t - 0.12) / 0.14) * 0.35 : 1
+        sprite.scale.set(base.x * pop, base.y * pop, 1)
         e.object.position.y = startY + t * 1.4
         sprite.material.opacity = t < 0.6 ? 1 : 1 - (t - 0.6) / 0.4
       },

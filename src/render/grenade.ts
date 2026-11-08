@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { Shot } from '../game/game'
 import { samplePath } from '../math/path'
-import { COLORS, SIDE, type Plane } from './world'
+import { COLORS, hdr, SIDE, type Plane } from './world'
 
 const SPEED = 16 // enheder i sekundet langs buen
 const MIN_TIME = 0.7
@@ -24,12 +24,12 @@ export class Grenade {
   constructor(private scene: THREE.Scene) {
     this.ball = new THREE.Mesh(
       new THREE.IcosahedronGeometry(0.22, 1),
-      new THREE.MeshBasicMaterial({ color: COLORS.beamCore }),
+      new THREE.MeshBasicMaterial({ color: hdr(COLORS.beamCore, 3) }),
     )
     const glow = new THREE.Mesh(
       new THREE.SphereGeometry(0.45, 12, 8),
       new THREE.MeshBasicMaterial({
-        color: COLORS.beam,
+        color: hdr(COLORS.beam, 2),
         transparent: true,
         opacity: 0.35,
         blending: THREE.AdditiveBlending,
@@ -50,7 +50,7 @@ export class Grenade {
     const flame = new THREE.Mesh(
       new THREE.ConeGeometry(0.17, 0.6, 8),
       new THREE.MeshBasicMaterial({
-        color: COLORS.rocket,
+        color: hdr(COLORS.rocket, 3),
         transparent: true,
         opacity: 0.8,
         blending: THREE.AdditiveBlending,
@@ -82,7 +82,7 @@ export class Grenade {
     this.trail = new THREE.Mesh(
       new THREE.TubeGeometry(curve, segments, 0.07, TUBE_RADIAL, false),
       new THREE.MeshBasicMaterial({
-        color: kind === 'rocket' ? COLORS.rocket : COLORS.beam,
+        color: hdr(kind === 'rocket' ? COLORS.rocket : COLORS.beam, 2.2),
         transparent: true,
         opacity: 0.9,
         blending: THREE.AdditiveBlending,

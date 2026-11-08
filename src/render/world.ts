@@ -1,4 +1,8 @@
 import * as THREE from 'three'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { ARENA_HALF } from '../game/waves'
 
 export const COLORS = {
@@ -32,6 +36,13 @@ export const COLORS = {
   bossBody: 0x8a2d5a,
   barrier: 0xffd166,
   rocket: 0x7cf29b,
+  cityFloor: 0x0d0a22,
+  cityGrid: 0x3b3a8f,
+  building: 0x0b0918,
+  neonPink: 0xff4fd8,
+  neonCyan: 0x3ff0ff,
+  neonViolet: 0x9b6bff,
+  citySun: 0xff3d8b,
   flask: 0x9fd8ff,
   liquid: 0x3ddc84,
 }
@@ -58,7 +69,71 @@ export const GROWTH: Plane = {
   toWorld: (x, y, lift = 0) => new THREE.Vector3(x - ARENA_HALF, y, lift),
 }
 
+/**
+ * En farve, der er stærkere end hvid, så den gløder. Gløden tager kun det, der er lysere end hvidt,
+ * så tekst og øjne forbliver skarpe, mens stråler, neon og eksplosioner lyser.
+ */
+export const hdr = (color: number, strength = 2.5): THREE.Color => new THREE.Color(color).multiplyScalar(strength)
+
 export const prefersReducedMotion = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/** Stemningen i en verden: himmel fra top til horisont, tåge og hvor meget det lysende gløder. */
+export interface Theme {
+  skyTop: string
+  /** Valgfri farve midt på himlen, fx solnedgangens lilla mellem natten og det orange. */
+  skyMid?: string
+  skyHorizon: string
+  fog: number
+  fogNear: number
+  fogFar: number
+  bloom: number
+}
+
+export const THEMES = {
+  // Neonby om natten: lilla himmel og kraftig glød
+  city: { skyTop: '#05030f', skyHorizon: '#2b0f4f', fog: 0x1a0a33, fogNear: 34, fogFar: 80, bloom: 0.9 },
+  // Synthwave-solnedgang: nat foroven, lilla og orange ved horisonten
+  mountains: {
+    skyTop: '#0b0320',
+    skyMid: '#4a1257',
+    skyHorizon: '#ff7a59',
+    fog: 0x2b0c3d,
+    fogNear: 45,
+    fogFar: 110,
+    bloom: 0.85,
+  },
+  // Giftgrønt laboratorium
+  lab: {
+    skyTop: '#010805',
+    skyMid: '#04241a',
+    skyHorizon: '#0b5234',
+    fog: 0x05261a,
+    fogNear: 40,
+    fogFar: 100,
+    bloom: 0.85,
+  },
+} satisfies Record<string, Theme>
+
+function skyTexture(theme: Theme): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = 2
+  canvas.height = 256
+  const ctx = canvas.getContext('2d')!
+  const g = ctx.createLinearGradient(0, 0, 0, 256)
+  g.addColorStop(0, theme.skyTop)
+  if (theme.skyMid) g.addColorStop(0.45, theme.skyMid)
+  g.addColorStop(0.8, theme.skyHorizon)
+  g.addColorStop(1, theme.skyHorizon)
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 2, 256)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+// Gløden slås fra, hvis computeren ikke kan følge med (fx en ældre Chromebook)
+const SLOW_FRAME = 1 / 32
+const SAMPLE_FRAMES = 120
 
 export class World {
   readonly renderer: THREE.WebGLRenderer
@@ -68,6 +143,9 @@ export class World {
   private lookTarget = new THREE.Vector3(0, 0, 0.9)
   private view: View = 'floor'
   private trauma = 0
+  private composer: EffectComposer | null = null
+  private bloom: UnrealBloomPass | null = null
+  private frameTimes: number[] = []
 
   constructor(private container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -76,6 +154,15 @@ export class World {
 
     this.scene.background = new THREE.Color(COLORS.bg)
     this.scene.fog = new THREE.Fog(COLORS.bg, 38, 70)
+    try {
+      this.composer = new EffectComposer(this.renderer)
+      this.composer.addPass(new RenderPass(this.scene, this.camera))
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.5, 0.92)
+      this.composer.addPass(this.bloom)
+      this.composer.addPass(new OutputPass())
+    } catch {
+      this.composer = null
+    }
     this.scene.add(new THREE.HemisphereLight(0xd6e4ff, 0x1a2638, 1.6))
     const sun = new THREE.DirectionalLight(0xffffff, 1.8)
     sun.position.set(-6, 14, 8)
@@ -83,6 +170,14 @@ export class World {
 
     new ResizeObserver(() => this.resize()).observe(container)
     this.resize()
+  }
+
+  setTheme(theme: Theme): void {
+    const old = this.scene.background
+    if (old instanceof THREE.Texture) old.dispose()
+    this.scene.background = skyTexture(theme)
+    this.scene.fog = new THREE.Fog(theme.fog, theme.fogNear, theme.fogFar)
+    if (this.bloom) this.bloom.strength = theme.bloom
   }
 
   setView(view: View): void {
@@ -103,7 +198,23 @@ export class World {
       .copy(this.basePosition)
       .add(new THREE.Vector3((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, (Math.random() - 0.5) * s))
     this.camera.lookAt(this.lookTarget)
-    this.renderer.render(this.scene, this.camera)
+    if (this.composer) {
+      this.composer.render(dt)
+      this.watchSpeed(dt)
+    } else this.renderer.render(this.scene, this.camera)
+  }
+
+  /** Måler de første par sekunder. Er billedet for langsomt, droppes gløden. */
+  private watchSpeed(dt: number): void {
+    if (this.frameTimes.length >= SAMPLE_FRAMES || dt <= 0 || document.hidden) return
+    this.frameTimes.push(dt)
+    if (this.frameTimes.length < SAMPLE_FRAMES) return
+    const sorted = [...this.frameTimes].sort((a, b) => a - b)
+    if (sorted[Math.floor(sorted.length / 2)] > SLOW_FRAME) {
+      this.composer?.dispose()
+      this.composer = null
+      this.bloom = null
+    }
   }
 
   private resize(): void {
@@ -111,6 +222,12 @@ export class World {
     const h = this.container.clientHeight
     if (!w || !h) return
     this.renderer.setSize(w, h, false)
+    if (this.composer) {
+      this.composer.setPixelRatio(this.renderer.getPixelRatio())
+      this.composer.setSize(w, h)
+      // Gløden regnes i halv opløsning; det ser næsten ens ud og er meget hurtigere
+      this.bloom?.resolution.set(w / 2, h / 2)
+    }
     this.camera.aspect = w / h
     // Smalle skærme har brug for, at kameraet trækkes længere tilbage
     if (this.view === 'floor') {
