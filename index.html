@@ -17,8 +17,8 @@
         <div class="hud">
           <span class="chip"><span id="hudLevel"></span> · Bølge <b id="hudWave">1</b></span>
           <span class="chip">Skud <b id="hudAmmo"></b></span>
-          <span class="chip">Point <b id="hudScore">0</b></span>
-          <span class="chip">Pointgange <b id="hudMult">×1</b> <small id="hudMultNext" hidden></small></span>
+          <span class="chip chip-score">Point <b id="hudScore">0</b></span>
+          <span class="chip chip-mult">Pointgange <b id="hudMult">×1</b> <small id="hudMultNext" hidden></small></span>
           <span class="chip boss" id="hudBoss" hidden>Boss <b id="hudBossLives"></b></span>
           <span class="chip march" id="hudMarch" hidden>Marchører rykker om <b id="hudMarchTime"></b> s</span>
           <span class="hud-buttons">
@@ -56,7 +56,7 @@
           <button class="tool" type="button" data-growth="exp" aria-pressed="true">Eksponentiel</button>
           <button class="tool" type="button" data-growth="line" aria-pressed="false">Lineær</button>
         </div>
-        <div>
+        <div class="formula-box">
           <div class="plabel">Din funktion</div>
           <div class="formula" id="formula">y = x</div>
           <div class="growth-note" id="growthNote"></div>
@@ -67,7 +67,7 @@
           <button class="tool" type="button" data-axis="y" aria-pressed="true">Vandret y = k</button>
         </div>
         <div class="sliders" id="sliders"></div>
-        <div>
+        <div class="typein-box">
           <label class="plabel" for="funcInput">Eller skriv selv</label>
           <form class="typein" id="funcForm">
             <input id="funcInput" type="text" autocomplete="off" spellcheck="false" placeholder="y = 0,5x − 2" />

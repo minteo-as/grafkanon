@@ -149,7 +149,9 @@ export class World {
 
   constructor(private container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    // Telefoner har mange pixels, men lille skærm: 1,5 ser skarpt ud og sparer meget regnekraft
+    const coarse = matchMedia('(pointer: coarse)').matches
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2))
     container.prepend(this.renderer.domElement)
 
     this.scene.background = new THREE.Color(COLORS.bg)
@@ -229,13 +231,18 @@ export class World {
       this.bloom?.resolution.set(w / 2, h / 2)
     }
     this.camera.aspect = w / h
-    // Smalle skærme har brug for, at kameraet trækkes længere tilbage
+    // Hvor langt væk kameraet skal stå, for at en bredde passer ind på tværs
+    const halfFovX = Math.atan(Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect)
+    const fitWidth = (half: number) => half / Math.tan(halfFovX)
     if (this.view === 'floor') {
-      const dist = 25.5 * Math.max(1, 1.3 / this.camera.aspect)
-      this.basePosition.set(0, dist * 0.76, dist * 0.65)
-      this.lookTarget.set(0, 0, 0.9)
+      // På højkant ses gulvet mere oppefra, så det fylder mere af den høje skærm
+      const portrait = this.camera.aspect < 1
+      const dist = Math.max(25.5, fitWidth(portrait ? 11.6 : 12.4) * (portrait ? 1.08 : 1))
+      const [up, back] = portrait ? [0.93, 0.37] : [0.76, 0.65]
+      this.basePosition.set(0, dist * up, dist * back)
+      this.lookTarget.set(0, 0, portrait ? 0.3 : 0.9)
     } else {
-      const dist = 23 * Math.max(1, 1.5 / this.camera.aspect)
+      const dist = Math.max(23, fitWidth(11.2))
       this.basePosition.set(0, 7.5, dist)
       this.lookTarget.set(0, 5.6, 0)
     }

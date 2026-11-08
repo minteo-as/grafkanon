@@ -46,6 +46,11 @@ export class Hud {
   private starTimers: number[] = []
   private shownMarch = ''
 
+  constructor() {
+    // På mobil vises tippet på to linjer. Et tryk folder det ud
+    this.hintEl.addEventListener('click', () => this.hintEl.classList.toggle('open'))
+  }
+
   get overlayVisible(): boolean {
     return !this.overlay.hidden
   }
@@ -103,6 +108,7 @@ export class Hud {
 
   hint(text: string): void {
     this.hintEl.textContent = text
+    this.hintEl.classList.remove('open')
   }
 
   toast(text: string): void {
