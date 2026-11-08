@@ -220,6 +220,12 @@ export class Controls {
     return { aimLine: this.aimToggle.checked, coordinates: this.coordsToggle.checked }
   }
 
+  /** Sætter flueben efter det gemte valg (uden at melde det tilbage som en ændring). */
+  setHelp(help: Help): void {
+    this.aimToggle.checked = help.aimLine
+    this.coordsToggle.checked = help.coordinates
+  }
+
   /** Er barrieren valgt i stedet for laseren? */
   get tool(): 'aim' | 'barrier' {
     return this.mode === 'barrier' ? 'barrier' : 'aim'

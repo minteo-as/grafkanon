@@ -5,14 +5,22 @@ export interface LabelOptions {
   background?: string
   /** Højde i verdensenheder (én enhed = én tern i gitteret). */
   height?: number
+  /** Kantfarve rundt om baggrunden. */
+  border?: string
+  /** Monospace til tal på akserne, brødtekstens skrift til koordinater og talebobler. */
+  font?: 'mono' | 'body'
 }
 
 const FONT_SIZE = 64
-const FONT = `700 ${FONT_SIZE}px "JetBrains Mono", ui-monospace, Menlo, monospace`
+const FONTS = {
+  mono: `700 ${FONT_SIZE}px "JetBrains Mono", ui-monospace, Menlo, monospace`,
+  body: `700 ${FONT_SIZE}px "Atkinson Hyperlegible", system-ui, sans-serif`,
+}
 
 /** En tekst, der altid vender mod kameraet. */
 export function textSprite(text: string, opts: LabelOptions = {}): THREE.Sprite {
-  const pad = opts.background ? 22 : 10
+  const FONT = FONTS[opts.font ?? 'mono']
+  const pad = opts.background ? 26 : 10
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')!
   ctx.font = FONT
@@ -25,8 +33,14 @@ export function textSprite(text: string, opts: LabelOptions = {}): THREE.Sprite 
   if (opts.background) {
     ctx.fillStyle = opts.background
     ctx.beginPath()
-    ctx.roundRect(0, 0, w, h, h / 2)
+    const inset = opts.border ? 3 : 0
+    ctx.roundRect(inset, inset, w - 2 * inset, h - 2 * inset, h / 2 - inset)
     ctx.fill()
+    if (opts.border) {
+      ctx.lineWidth = 5
+      ctx.strokeStyle = opts.border
+      ctx.stroke()
+    }
   }
   ctx.fillStyle = opts.color ?? '#8ea2c0'
   ctx.textAlign = 'center'

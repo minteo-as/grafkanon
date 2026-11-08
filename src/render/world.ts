@@ -10,7 +10,7 @@ export const COLORS = {
   floor: 0x13213a,
   grid: 0x263a58,
   gridMain: 0x3a5682,
-  axis: 0x9db8e0,
+  axis: 0x5d6f96,
   rim: 0x1a2a40,
   enemy: 0xff6b3d,
   enemyGlow: 0x5a1800,

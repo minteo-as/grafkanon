@@ -126,15 +126,23 @@ function lookOf(e: Enemy, side: boolean) {
   return { geo: staticGeo, color: COLORS.enemy, glow: COLORS.enemyGlow, spin: 0.9 }
 }
 
-function labelColors(e: Enemy): [string, string] {
-  if (e.boss) return ['#ffe0ec', 'rgba(80,10,40,0.9)']
-  if (e.march) return ['#efe2ff', 'rgba(40,16,72,0.88)']
-  if (e.splits) return ['#dcfffb', 'rgba(8,52,56,0.88)']
-  return ['#ffe3d6', 'rgba(60,20,8,0.85)']
+/** Koordinaterne står på en mørk, halvgennemsigtig plade med en kant i glitchens farve. */
+function labelColors(e: Enemy, side: boolean): [string, string] {
+  if (e.boss) return ['#ffe9f1', '#ff5c93']
+  if (e.march) return ['#f1e9ff', '#b07cff']
+  if (e.splits) return ['#e3fffb', '#38d6c4']
+  if (side && e.y > 0) return ['#fff3e0', '#ffb347']
+  return ['#fff0ea', '#ff6b3d']
 }
 
-const makeLabel = (x: number, y: number, [color, background]: [string, string]) =>
-  textSprite(fmtPoint(x, y), { color, background, height: 0.5 })
+const makeLabel = (x: number, y: number, [color, border]: [string, string], scale = 1) =>
+  textSprite(fmtPoint(x, y), {
+    color,
+    border,
+    background: 'rgba(9, 11, 26, 0.8)',
+    height: 0.46 * scale,
+    font: 'body',
+  })
 
 export class EnemyLayer {
   private views = new Map<number, View>()
@@ -148,6 +156,7 @@ export class EnemyLayer {
   private twinBodies: { mesh: THREE.Mesh; baseY: number; face: Face }[] = []
   private curve: { mesh: THREE.Mesh; points: THREE.Vector3[]; face: Face } | null = null
   private targeted = new Set<number>()
+  private labelScale = 1
   private camera = new THREE.Vector3(0, 20, 20)
   private lookTarget = new THREE.Vector3()
   private speech: { sprite: THREE.Sprite; timeLeft: number } | null = null
@@ -178,6 +187,11 @@ export class EnemyLayer {
     this.decorDirty = true
   }
 
+  /** På smalle skærme er banen lille, så koordinaterne gøres større for at kunne læses. */
+  setLabelScale(scale: number): void {
+    this.labelScale = scale
+  }
+
   /** Glitches, som sigtet lige nu går igennem. De bliver bange. */
   setTargeted(ids: Iterable<number>): void {
     this.targeted = new Set(ids)
@@ -192,7 +206,7 @@ export class EnemyLayer {
   /** Bossen siger noget i en taleboble over sin krop. */
   say(text: string, seconds = 3.2): void {
     this.clearSpeech()
-    const sprite = textSprite(text, { color: '#2a0a1c', background: '#ffe0ec', height: 0.62 })
+    const sprite = textSprite(text, { color: '#2a0a1c', background: '#ffe0ec', height: 0.62, font: 'body' })
     sprite.renderOrder = 10
     this.scene.add(sprite)
     this.speech = { sprite, timeLeft: seconds }
@@ -228,7 +242,7 @@ export class EnemyLayer {
       v.hopT = 0
       v.group.remove(v.label)
       disposeSprite(v.label)
-      v.label = makeLabel(e.x, e.y, v.labelColors)
+      v.label = makeLabel(e.x, e.y, v.labelColors, this.labelScale)
       v.label.position.y = v.baseY + 0.85
       v.label.visible = this.showCoordinates
       v.group.add(v.label)
@@ -341,8 +355,8 @@ export class EnemyLayer {
     face.group.position.y = baseY
     group.add(face.group)
 
-    const colors = labelColors(e)
-    const label = makeLabel(e.x, e.y, colors)
+    const colors = labelColors(e, side)
+    const label = makeLabel(e.x, e.y, colors, this.labelScale)
     label.position.y = baseY + 0.85
     label.visible = this.showCoordinates
     group.add(label)

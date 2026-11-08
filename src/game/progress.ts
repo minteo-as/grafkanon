@@ -2,6 +2,7 @@
 
 import { LEVELS } from './levels'
 import type { LevelResult } from './game'
+import type { Help } from './scoring'
 
 const KEY = 'grafkanonen:v1'
 
@@ -13,6 +14,8 @@ export interface LevelProgress {
 export interface Progress {
   levels: Record<string, LevelProgress>
   muted: boolean
+  /** Sigtelinje og koordinater, som eleven sidst valgte. Uden et valg er begge slået til. */
+  help?: Help
 }
 
 const empty = (): Progress => ({ levels: {}, muted: false })
@@ -22,7 +25,12 @@ export function loadProgress(): Progress {
     const raw = globalThis.localStorage?.getItem(KEY)
     if (!raw) return empty()
     const data = JSON.parse(raw) as Partial<Progress>
-    return { levels: data.levels ?? {}, muted: !!data.muted }
+    const help = data.help
+    return {
+      levels: data.levels ?? {},
+      muted: !!data.muted,
+      ...(help ? { help: { aimLine: help.aimLine !== false, coordinates: help.coordinates !== false } } : {}),
+    }
   } catch {
     return empty()
   }

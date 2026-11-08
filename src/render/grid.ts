@@ -52,7 +52,7 @@ const fragmentShader = /* glsl */ `
       ripple += front * (1.0 - age / ${RIPPLE_LIFE.toFixed(2)});
     }
 
-    float lines = minor * (0.32 + scan + ripple * 1.6) + major * (0.6 + scan + ripple * 2.0);
+    float lines = minor * (0.2 + scan * 0.7 + ripple * 1.6) + major * (0.38 + scan * 0.7 + ripple * 2.0);
     vec3 color = mix(uColor, uGlow, clamp(ripple + scan * 0.5, 0.0, 1.0)) * lines;
     color += uGlow * ripple * 0.08;
     float alpha = clamp(lines + ripple * 0.1, 0.0, 1.0) * fade;

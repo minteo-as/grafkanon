@@ -4,6 +4,10 @@ import { HoloGrid } from './grid'
 import { textSprite } from './labels'
 import { COLORS, hdr, SIDE, toWorld, type Plane } from './world'
 
+/** Tallene og navnene på akserne er dæmpede, så glitches og grafer er det, man ser først. */
+const AXIS_NUMBER = { color: '#66779b', height: 0.46 }
+const AXIS_NAME = { color: '#93a3c2', height: 0.6 }
+
 /** En bane: det, der står stille, og gitteret, der lyser op, når noget bliver ramt. */
 export interface Arena {
   group: THREE.Group
@@ -41,22 +45,22 @@ export function buildFloorArena(half: number): Arena {
   arena.add(grid.mesh)
 
   const axisMat = new THREE.MeshBasicMaterial({ color: COLORS.axis })
-  const xAxis = new THREE.Mesh(new THREE.BoxGeometry(size + 1, 0.03, 0.07), axisMat)
-  const yAxis = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.03, size + 1), axisMat)
+  const xAxis = new THREE.Mesh(new THREE.BoxGeometry(size + 1, 0.02, 0.05), axisMat)
+  const yAxis = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, size + 1), axisMat)
   xAxis.position.y = yAxis.position.y = 0.02
   arena.add(xAxis, yAxis)
 
   for (let v = -half; v <= half; v += 2) {
     if (v === 0) continue
-    const onX = textSprite(fmtNum(v))
+    const onX = textSprite(fmtNum(v), AXIS_NUMBER)
     onX.position.copy(toWorld(v, -0.55, 0.25))
-    const onY = textSprite(fmtNum(v))
+    const onY = textSprite(fmtNum(v), AXIS_NUMBER)
     onY.position.copy(toWorld(-0.6, v, 0.25))
     arena.add(onX, onY)
   }
-  const xName = textSprite('x', { color: '#dce6f4', height: 0.7 })
+  const xName = textSprite('x', AXIS_NAME)
   xName.position.copy(toWorld(half + 0.5, 0.5, 0.3))
-  const yName = textSprite('y', { color: '#dce6f4', height: 0.7 })
+  const yName = textSprite('y', AXIS_NAME)
   yName.position.copy(toWorld(0.5, half + 0.5, 0.3))
   arena.add(xName, yName)
 
@@ -229,27 +233,27 @@ export function buildSideArena(half: number, top: number, opts: SideArenaOptions
   arena.add(ground, horizon)
 
   const axisMat = new THREE.MeshBasicMaterial({ color: COLORS.axis })
-  const xAxis = new THREE.Mesh(new THREE.BoxGeometry(2 * half + 1, 0.06, 0.06), axisMat)
+  const xAxis = new THREE.Mesh(new THREE.BoxGeometry(2 * half + 1, 0.045, 0.045), axisMat)
   xAxis.position.set(0, 0.01, 0)
-  const yAxis = new THREE.Mesh(new THREE.BoxGeometry(0.06, top + 0.6, 0.06), axisMat)
+  const yAxis = new THREE.Mesh(new THREE.BoxGeometry(0.045, top + 0.6, 0.045), axisMat)
   yAxis.position.copy(plane.toWorld(0, (top + 0.6) / 2))
   arena.add(xAxis, yAxis)
 
   // Tallene på x-aksen står på jorden lige foran aksen. Under aksen ville jorden skjule dem.
   for (let v = xFrom; v <= xTo; v += 2) {
     if (v === 0) continue
-    const label = textSprite(fmtNum(v))
+    const label = textSprite(fmtNum(v), AXIS_NUMBER)
     label.position.copy(plane.toWorld(v, 0.22, 1.1))
     arena.add(label)
   }
   for (let v = 2; v <= top; v += 2) {
-    const label = textSprite(fmtNum(v))
+    const label = textSprite(fmtNum(v), AXIS_NUMBER)
     label.position.copy(plane.toWorld(-0.6, v, 0.1))
     arena.add(label)
   }
-  const xName = textSprite('x', { color: '#dce6f4', height: 0.7 })
+  const xName = textSprite('x', AXIS_NAME)
   xName.position.copy(plane.toWorld(xTo + 0.6, 0.5, 0.2))
-  const yName = textSprite('y', { color: '#dce6f4', height: 0.7 })
+  const yName = textSprite('y', AXIS_NAME)
   yName.position.copy(plane.toWorld(0.5, top + 0.5, 0.2))
   arena.add(xName, yName)
 

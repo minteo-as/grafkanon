@@ -171,6 +171,7 @@ async function main(): Promise<void> {
 
   const loadWave = () => {
     hud.hideOverlay()
+    enemies.setLabelScale(stage.clientWidth < 560 ? 1.4 : stage.clientWidth < 900 ? 1.15 : 1)
     controls.setLinearAvailable(!!game.spec.linear)
     enemies.set(game.enemies, game.help.coordinates)
     walls.set(game.walls)
@@ -262,6 +263,8 @@ async function main(): Promise<void> {
       showAim()
     },
     onHelp: (help) => {
+      progress.help = help
+      saveProgress(progress)
       game.setHelp(help)
       const result = game.path
       aim.set(result.ok ? result.path : null, help.aimLine)
@@ -504,6 +507,7 @@ async function main(): Promise<void> {
     requestAnimationFrame(tick)
   }
 
+  if (progress.help) controls.setHelp(progress.help)
   game.setHelp(controls.help)
   applyWeapon()
   openMenu()

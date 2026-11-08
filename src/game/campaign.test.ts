@@ -3,7 +3,15 @@ import type { Aim } from '../math/path'
 import { isoWeek, weeklyChallenge } from './challenge'
 import { BARRIER_TIME, Game, HIT_RADIUS, type Enemy } from './game'
 import { LEVELS, TRAINING, WORLDS, weaponOf, type Level } from './levels'
-import { bossRequirement, isUnlocked, recordLevel, worldStars, type Progress } from './progress'
+import {
+  bossRequirement,
+  isUnlocked,
+  loadProgress,
+  recordLevel,
+  saveProgress,
+  worldStars,
+  type Progress,
+} from './progress'
 import { mulberry32 } from './rng'
 import { canHit, generateWave, isSolvable } from './waves'
 
@@ -354,6 +362,27 @@ describe('træningsbanen', () => {
       expect(game.phase).toBe('aiming')
       expect(game.score).toBe(score)
       expect(JSON.stringify(game.enemies.map((e) => [e.x, e.y]))).not.toBe(before)
+    }
+  })
+})
+
+describe('gemte indstillinger', () => {
+  it('husker sigtelinje og koordinater mellem besøg', () => {
+    const store = new Map<string, string>()
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+    }
+    const old = (globalThis as { localStorage?: unknown }).localStorage
+    ;(globalThis as { localStorage?: unknown }).localStorage = storage
+    try {
+      expect(loadProgress().help).toBeUndefined()
+      const p = loadProgress()
+      p.help = { aimLine: false, coordinates: true }
+      saveProgress(p)
+      expect(loadProgress().help).toEqual({ aimLine: false, coordinates: true })
+    } finally {
+      ;(globalThis as { localStorage?: unknown }).localStorage = old
     }
   })
 })
