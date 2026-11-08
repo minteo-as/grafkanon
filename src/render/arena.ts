@@ -85,6 +85,12 @@ export function buildFloorArena(half: number): Arena {
   return { group: arena, grid }
 }
 
+/** Hvor lys en farve opleves (0–1), regnet i lineære farver som gløden. */
+function luminance(hex: number): number {
+  const c = new THREE.Color(hex)
+  return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+}
+
 /** Vinduer som en tekstur: mørke ruder med tilfældige lys i varme og kolde farver. */
 function windowTexture(seed: number): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
@@ -116,7 +122,8 @@ function buildCity(half: number): THREE.Group {
   const city = new THREE.Group()
   const textures = [1, 2, 3, 4].map(windowTexture)
   const neon = [COLORS.neonPink, COLORS.neonCyan, COLORS.neonViolet].map(
-    (color) => new THREE.MeshBasicMaterial({ color: hdr(color, 2.2) }),
+    // Lige meget glød i alle farver: lyse farver (cyan) forstærkes mindre end mørke (lyserød, lilla)
+    (color) => new THREE.MeshBasicMaterial({ color: hdr(color, Math.min(3, 0.95 / luminance(color))) }),
   )
   let r = 7
   const rand = () => (r = (r * 9301 + 49297) % 233280) / 233280
@@ -127,7 +134,8 @@ function buildCity(half: number): THREE.Group {
   }
   // På siderne
   for (const sx of [-1, 1]) {
-    for (let z = -half - 2; z <= half - 2; z += 4 + rand() * 2) spots.push([sx * (half + 9 + rand() * 6), z])
+    // Kun ud for den bageste halvdel; huse tæt på kameraet ville vælte udad i perspektivet
+    for (let z = -half - 2; z <= 1; z += 4 + rand() * 2) spots.push([sx * (half + 9 + rand() * 6), z])
   }
   for (const [x, z] of spots) {
     const far = Math.min(1, Math.max(0, (Math.abs(z) - half - 6) / 20) + Math.abs(x) / 80)
@@ -143,7 +151,7 @@ function buildCity(half: number): THREE.Group {
         color: COLORS.building,
         emissive: 0xffffff,
         emissiveMap: map,
-        emissiveIntensity: 1.3,
+        emissiveIntensity: 0.95,
         roughness: 0.9,
       }),
     )
@@ -152,14 +160,14 @@ function buildCity(half: number): THREE.Group {
     if (rand() < 0.45) {
       // Neonlister langs tagkanten (kun kanten, så taget ikke ligner en farvet plade)
       const mat = neon[Math.floor(rand() * neon.length)]
-      const t = 0.1
+      const t = 0.07
       for (const [sx, sz, lx, lz] of [
         [0, d / 2, w, t],
         [0, -d / 2, w, t],
         [w / 2, 0, t, d],
         [-w / 2, 0, t, d],
       ]) {
-        const strip = new THREE.Mesh(new THREE.BoxGeometry(lx + t, 0.12, lz + t), mat)
+        const strip = new THREE.Mesh(new THREE.BoxGeometry(lx + t, 0.08, lz + t), mat)
         strip.position.set(x + sx, h - 0.3, z + sz)
         city.add(strip)
       }

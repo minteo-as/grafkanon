@@ -229,6 +229,62 @@ export class World {
     }
   }
 
+  /**
+   * Finder kameraets placering til gulvet (Linjebyen) på enhver skærm. Hele banen med kant og kanon
+   * skal være med, tippet nederst må ikke dække den, og den øverste del af billedet holdes fri, så
+   * byen kan ses. Der prøves forskellige vinkler og sigtepunkter. For hver findes den korteste
+   * afstand, hvor banen passer, og blandt dem, hvor banen ligger helt nede, vælges den største.
+   */
+  private fitFloor(w: number, h: number): void {
+    const edge = ARENA_HALF + 1.3
+    const corners = [-edge, edge].flatMap((x) => [-edge, edge].map((z) => new THREE.Vector3(x, 0.3, z)))
+    const probe = new THREE.PerspectiveCamera(this.camera.fov, w / h, 0.1, 200)
+    // Grænser i skærmkoordinater (−1 til 1): lidt luft i siderne, plads til tippet forneden og til byen foroven
+    const side = 1 - (2 * 12) / w
+    const bottom = -1 + (2 * (h < 600 ? 58 : 46)) / h
+    const top = 1 - (2 * Math.max(90, h * 0.24)) / h
+    const target = new THREE.Vector3()
+    const dir = new THREE.Vector3()
+    const fits = (d: number) => {
+      probe.position.copy(target).addScaledVector(dir, d)
+      probe.lookAt(target)
+      probe.updateMatrixWorld()
+      let low = Infinity
+      for (const c of corners) {
+        const p = c.clone().project(probe)
+        if (Math.abs(p.x) > side || p.y > top || p.y < bottom) return null
+        low = Math.min(low, p.y)
+      }
+      return low
+    }
+    const options: { d: number; z: number; up: number; low: number }[] = []
+    // Ikke stejlere end ca. 60°, ellers ser man kun husenes tage
+    for (let up = 0.55; up <= 0.86; up += 0.05) {
+      dir.set(0, up, Math.sqrt(1 - up * up))
+      for (let z = -12; z <= 6; z += 1) {
+        target.set(0, 0, z)
+        let lo = 10
+        let hi = 160
+        if (fits(hi) === null) continue
+        for (let i = 0; i < 26; i++) {
+          const mid = (lo + hi) / 2
+          if (fits(mid) === null) lo = mid
+          else hi = mid
+        }
+        options.push({ d: hi, z, up, low: fits(hi)! })
+      }
+    }
+    // Helst en placering, hvor banen når ned til tippet, så pladsen forneden bruges og byen får resten
+    const grounded = options.filter((o) => o.low <= bottom + 0.06)
+    const pool = grounded.length ? grounded : options
+    const best = pool.reduce((a, b) => (b.d < a.d ? b : a), { d: Infinity, z: 0, up: 0.7, low: 0 })
+    if (!Number.isFinite(best.d)) best.d = 40
+    this.lookTarget.set(0, 0, best.z)
+    this.basePosition
+      .copy(this.lookTarget)
+      .addScaledVector(new THREE.Vector3(0, best.up, Math.sqrt(1 - best.up * best.up)), best.d)
+  }
+
   private resize(): void {
     const w = this.container.clientWidth
     const h = this.container.clientHeight
@@ -245,13 +301,7 @@ export class World {
     const halfFovX = Math.atan(Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect)
     const fitWidth = (half: number) => half / Math.tan(halfFovX)
     if (this.view === 'floor') {
-      // På højkant står kameraet lavere og kigger ind over banen, så banen ligger nederst og byen
-      // fylder den øverste del af den høje skærm
-      const portrait = this.camera.aspect < 1
-      const dist = Math.max(25.5, fitWidth(portrait ? 12.2 : 12.4) * (portrait ? 1.1 : 1))
-      const [up, back] = portrait ? [0.7, 0.71] : [0.76, 0.65]
-      this.basePosition.set(0, dist * up, dist * back)
-      this.lookTarget.set(0, 0, portrait ? -8.5 : 0.9)
+      this.fitFloor(w, h)
     } else {
       // Med plads til kanonen og tallene uden for banens kant (x = ±10)
       const dist = Math.max(23, fitWidth(12.4))
