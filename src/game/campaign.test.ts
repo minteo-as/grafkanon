@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Aim } from '../math/path'
 import { isoWeek, weeklyChallenge } from './challenge'
-import { BARRIER_TIME, Game, HIT_RADIUS, type Enemy } from './game'
+import { BARRIER_TIME, Game, HIT_RADIUS, type Enemy, type ShotOutcome } from './game'
 import { LEVELS, TRAINING, WORLDS, weaponOf, type Level } from './levels'
 import {
   bossRequirement,
@@ -36,14 +36,16 @@ function wouldHit(game: Game, aim: Aim): number {
 }
 
 /** Spiller en bølge med løsningens skud: altid det skud, der rammer flest lige nu. */
-function autoplayWave(game: Game, solution: Aim[]): void {
+function autoplayWave(game: Game, solution: Aim[]): ShotOutcome | null {
+  let last: ShotOutcome | null = null
   while (game.phase === 'aiming') {
     const best = solution.map((aim) => ({ aim, n: wouldHit(game, aim) })).sort((p, q) => q.n - p.n)[0]
-    if (!best || best.n === 0) return
+    if (!best || best.n === 0) return last
     game.setAim(best.aim)
     game.fire()
-    game.completeShot()
+    last = game.completeShot()
   }
+  return last
 }
 
 describe('hele kampagnen', () => {
@@ -384,5 +386,62 @@ describe('gemte indstillinger', () => {
     } finally {
       ;(globalThis as { localStorage?: unknown }).localStorage = old
     }
+  })
+})
+
+describe('angreb på basen', () => {
+  const attackLevel = levelById('linjebyen-3')
+
+  it('starter først i tredje bane, og træningsbanen har ingen', () => {
+    expect(levelById('linjebyen-1').waves.every((w) => !w.attack)).toBe(true)
+    expect(levelById('linjebyen-2').waves.every((w) => !w.attack)).toBe(true)
+    expect(attackLevel.waves.every((w) => w.attack! > 0)).toBe(true)
+    expect(Object.values(TRAINING).every((l) => l.waves.every((w) => !w.attack))).toBe(true)
+  })
+
+  it('glitcherne lader op, skyder et skjold i stykker ad gangen og får basen til at falde', () => {
+    const { game } = startKnown(attackLevel, 2)
+    const time = game.spec.attack!
+    // Ingen skyder, før ladningen er fuld (den første starter uden forsinkelse)
+    expect(game.update(time * 0.5).attacks).toEqual([])
+    const warned = game.update(time * 0.35).warnings
+    expect(warned.length).toBeGreaterThan(0)
+    let attacks = 0
+    let fallen = false
+    for (let i = 0; i < 400 && !fallen; i++) {
+      const r = game.update(0.1)
+      attacks += r.attacks.length
+      fallen = r.fallen
+    }
+    expect(fallen).toBe(true)
+    expect(attacks).toBeGreaterThanOrEqual(3)
+    expect(game.shields).toBe(0)
+    expect(game.phase).toBe('fallen')
+    game.retryWave()
+    expect(game.shields).toBe(3)
+    expect(game.phase).toBe('aiming')
+  })
+
+  it('står stille, mens et skud flyver, og når angreb er slået fra', () => {
+    const { game, solutions } = startKnown(attackLevel, 2)
+    game.setAim(solutions[0][0])
+    game.fire()
+    expect(game.update(999).attacks).toEqual([])
+    game.completeShot()
+    game.attacksEnabled = false
+    expect(game.update(999).attacks).toEqual([])
+    expect(game.shields).toBe(3)
+  })
+
+  it('giver bonus for hvert skjold, der er tilbage', () => {
+    // En bane uden marchører, så glitcherne står stille, mens tiden går
+    const { game, solutions } = startKnown(levelById('parabel-1'), 2)
+    const time = game.spec.attack!
+    // Lad den første glitch skyde én gang
+    for (let i = 0; i < 200 && game.shields === 3; i++) game.update(time / 50)
+    expect(game.shields).toBe(2)
+    const last = autoplayWave(game, solutions[0])
+    expect(last!.phase).toBe('cleared')
+    expect(last!.shieldBonus).toBe(2 * 150)
   })
 })

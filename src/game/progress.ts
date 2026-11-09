@@ -16,6 +16,8 @@ export interface Progress {
   muted: boolean
   /** Sigtelinje og koordinater, som eleven sidst valgte. Uden et valg er begge slået til. */
   help?: Help
+  /** Angreb på basen kan slås fra i menuen. Uden et valg er de slået til. */
+  attacks?: boolean
 }
 
 const empty = (): Progress => ({ levels: {}, muted: false })
@@ -30,6 +32,7 @@ export function loadProgress(): Progress {
       levels: data.levels ?? {},
       muted: !!data.muted,
       ...(help ? { help: { aimLine: help.aimLine !== false, coordinates: help.coordinates !== false } } : {}),
+      ...(data.attacks === false ? { attacks: false } : {}),
     }
   } catch {
     return empty()

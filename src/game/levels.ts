@@ -931,6 +931,38 @@ export const LEVELS: Level[] = [
   },
 ]
 
+/**
+ * Sekunder, glitcherne i hver bane er om at lade op og skyde mod basen. De to første baner er
+ * øvebaner uden angreb, og bosserne skyder hurtigst. Træningsbanen har ingen angreb.
+ */
+const ATTACK_TIME: Record<string, number> = {
+  'linjebyen-3': 24,
+  'linjebyen-barriere': 24,
+  'linjebyen-skjolde': 22,
+  'linjebyen-4': 20,
+  'linjebyen-boss': 17,
+  'parabel-1': 26,
+  'parabel-2': 24,
+  'parabel-3': 24,
+  'parabel-abc': 26,
+  'parabel-blandet': 20,
+  'parabel-boss': 17,
+  'vaekst-1': 26,
+  'vaekst-2': 24,
+  'vaekst-3': 24,
+  'vaekst-4': 22,
+  'vaekst-blandet': 20,
+  'vaekst-boss': 17,
+  'finale-1': 22,
+  'finale-2': 20,
+  'finale-3': 18,
+  'finale-boss': 15,
+}
+for (const level of LEVELS) {
+  const time = ATTACK_TIME[level.id]
+  if (time) for (const wave of level.waves) wave.attack ??= time
+}
+
 const TRAINING_HINT = 'Træning: skyd løs. Der kommer nye mål, når du har ramt dem alle.'
 
 /** Træningsbanen: én bølge, der kommer igen med nye mål. Ingen stjerner, bare skyderi. */

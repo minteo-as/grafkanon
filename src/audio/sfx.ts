@@ -94,6 +94,20 @@ export class Sfx {
     this.tone({ type: 'triangle', from: 500, to: 1300, duration: 0.6, volume: 0.04, delay: 0.05 })
   }
 
+  /** En glitch er ved at være ladet op: en lav, truende knurren. */
+  warn(): void {
+    this.tone({ type: 'sawtooth', from: 120, to: 78, duration: 0.55, volume: 0.07, distort: true })
+    this.tone({ type: 'square', from: 240, to: 150, duration: 0.45, volume: 0.025, delay: 0.05 })
+  }
+
+  /** En glitch skyder mod basen, og et skjold springer. */
+  shieldHit(): void {
+    this.tone({ type: 'sawtooth', from: 900, to: 120, duration: 0.25, volume: 0.12 })
+    this.noise({ duration: 0.3, volume: 0.4, filterFrom: 2600, filterTo: 600, filterType: 'bandpass', q: 0.8 })
+    this.tone({ type: 'sine', from: 130, to: 48, duration: 0.32, volume: 0.5, attack: 0.003 })
+    this.tone({ type: 'sine', from: 1500, to: 1350, duration: 0.45, volume: 0.04, delay: 0.06 })
+  }
+
   /** Raketten tænder: et sus, der stiger, ligesom kurven. */
   rocket(): void {
     this.noise({ duration: 0.7, volume: 0.28, filterFrom: 400, filterTo: 4200, filterType: 'bandpass', q: 1.2 })

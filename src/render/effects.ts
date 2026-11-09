@@ -90,6 +90,39 @@ export class Effects {
     }
   }
 
+  /** En glitch skyder mod basen: en rød stråle, der lyser op og falmer, og et glimt ved basen. */
+  attackBolt(from: THREE.Vector3, to: THREE.Vector3, view: View): void {
+    const length = from.distanceTo(to)
+    const bolt = new THREE.Mesh(
+      new THREE.BoxGeometry(length, 0.12, 0.12),
+      new THREE.MeshBasicMaterial({
+        color: hdr(0xff3b3b, 2.2),
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    )
+    bolt.position.copy(from).lerp(to, 0.5)
+    const dir = to.clone().sub(from).normalize()
+    bolt.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir)
+    this.add(
+      bolt,
+      0.35,
+      (e, _dt, t) => {
+        // Strålen skyder frem på et øjeblik og bliver tyndere, mens den falmer
+        const grow = Math.min(1, t * 5)
+        e.object.scale.set(grow, 1 - t * 0.7, 1 - t * 0.7)
+        e.object.position.copy(from).lerp(to, grow / 2)
+        ;(bolt.material as THREE.MeshBasicMaterial).opacity = 1 - t
+      },
+      () => {
+        bolt.geometry.dispose()
+        ;(bolt.material as THREE.Material).dispose()
+      },
+    )
+    this.explosion(to, 0xff3b3b, view)
+  }
+
   /** En stiplet streg fra deleren til dens spejlbillede, så man kan se spejlingen i y-aksen. */
   mirrorLink(from: THREE.Vector3, to: THREE.Vector3, color: number): void {
     const line = new THREE.Line(

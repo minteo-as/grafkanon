@@ -108,6 +108,8 @@ export interface WaveSpec {
   barriers?: number
   /** Raketten kan også skyde med lineær vækst y = ax + b. */
   linear?: boolean
+  /** Sekunder, det tager en glitch at lade op og skyde mod basen. Uden værdi angriber de ikke. */
+  attack?: number
   boss?: BossSpec
 }
 

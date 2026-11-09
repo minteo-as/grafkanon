@@ -3,7 +3,15 @@
 import type { Aim, Path, PathResult, Wall } from '../math/path'
 import { LEVELS, weaponOf, type Level } from './levels'
 import { mulberry32, type Rng } from './rng'
-import { BONUS_PER_SPARE_SHOT, helpMultiplier, shotPoints, starsFor, type Help, type WaveResult } from './scoring'
+import {
+  BONUS_PER_SHIELD,
+  BONUS_PER_SPARE_SHOT,
+  helpMultiplier,
+  shotPoints,
+  starsFor,
+  type Help,
+  type WaveResult,
+} from './scoring'
 import {
   canHit,
   generateWave,
@@ -21,12 +29,33 @@ const DEFAULT_MARCH_INTERVAL = 3
 /** Så længe en barriere holder marchørerne tilbage. */
 export const BARRIER_TIME = 8
 export const BOSS_PHASE_BONUS = 500
+/** Basens skjolde i hver bølge. Mister den dem alle, falder basen. */
+export const SHIELDS = 3
+/** Hvor langt en glitch er i sin ladning, når den begynder at lyse rødt og advare. */
+export const CHARGE_WARNING = 0.8
 
-export type Phase = 'aiming' | 'firing' | 'cleared' | 'outOfAmmo' | 'escaped'
+/** 'fallen': glitcherne har skudt basens skjolde i stykker. */
+export type Phase = 'aiming' | 'firing' | 'cleared' | 'outOfAmmo' | 'escaped' | 'fallen'
 
 export interface Enemy extends Spawn {
   id: number
   alive: boolean
+  /** Ladning mod næste angreb: 0 = lige skudt, 1 = skyder nu. Negativ i starten, så de ikke skyder samtidig. */
+  charge: number
+}
+
+/** Hvad der skete, mens tiden gik. */
+export interface UpdateResult {
+  /** Marchørerne tog et skridt. */
+  hop: boolean
+  /** En marchør gik ud af banen. */
+  escaped: boolean
+  /** Glitches, der lige har skudt mod basen. */
+  attacks: Enemy[]
+  /** Glitches, der lige er begyndt at advare (lyser rødt). */
+  warnings: Enemy[]
+  /** Basen mistede sit sidste skjold. */
+  fallen: boolean
 }
 
 /** En lodret (x = k) eller vandret (y = k) barriere, som marchører ikke kan gå over. */
@@ -47,7 +76,9 @@ export interface Shot {
 export interface ShotOutcome {
   hits: number
   points: number
+  /** Bonus for skud og skjolde, der er tilbage, når bølgen er klaret. */
   bonus: number
+  shieldBonus: number
   phase: Phase
   /** Nye glitches: delernes spejlbilleder og bossens næste fase. */
   spawned: Enemy[]
@@ -79,6 +110,9 @@ export class Game {
   barrierCharges = 0
   aim: Aim = defaultAim('laser')
   help: Help = { aimLine: true, coordinates: true }
+  shields = SHIELDS
+  /** Kan slås fra i menuen, så man kan spille i ro. */
+  attacksEnabled = true
 
   // Hjælp, der har været slået til på noget tidspunkt i bølgen. Så kan man ikke
   // sigte med hjælp og slå den fra lige før skuddet for at få flere point.
@@ -166,6 +200,11 @@ export class Game {
     return true
   }
 
+  /** Angriber glitcherne i denne bølge? */
+  get attacking(): boolean {
+    return this.attacksEnabled && !!this.spec.attack
+  }
+
   /** Sekunder til marchørernes næste skridt, eller null hvis ingen marcherer. */
   get timeToHop(): number | null {
     const active = this.phase === 'aiming' || this.phase === 'firing'
@@ -219,31 +258,50 @@ export class Game {
   }
 
   /**
-   * Flytter tiden frem. Marchørerne går kun, mens man sigter, så de står stille under skud og pauser.
-   * Giver 'hop', når de har taget et skridt, og 'escaped', hvis en af dem er gået ud af banen.
+   * Flytter tiden frem. Alt sker kun, mens man sigter, så marchører og ladninger står stille under
+   * skud og pauser. Marchørerne tager et skridt, når uret slår, og glitcherne lader op og skyder
+   * mod basen, når ladningen er fuld.
    */
-  update(dt: number): 'hop' | 'escaped' | null {
-    if (this.phase !== 'aiming') return null
+  update(dt: number): UpdateResult {
+    const result: UpdateResult = { hop: false, escaped: false, attacks: [], warnings: [], fallen: false }
+    if (this.phase !== 'aiming') return result
     for (const b of this.barriers) b.timeLeft -= dt
     this.barriers = this.barriers.filter((b) => b.timeLeft > 0)
-    if (!this.hasMarchers) return null
+
+    if (this.attacking) {
+      const time = this.spec.attack!
+      for (const e of this.enemies) {
+        if (!e.alive) continue
+        const before = e.charge
+        e.charge += dt / time
+        if (before < CHARGE_WARNING && e.charge >= CHARGE_WARNING) result.warnings.push(e)
+        if (e.charge < 1) continue
+        e.charge = 0
+        result.attacks.push(e)
+        this.shields = Math.max(0, this.shields - 1)
+      }
+      if (result.attacks.length && this.shields === 0) {
+        this.phase = 'fallen'
+        result.fallen = true
+        return result
+      }
+    }
+
+    if (!this.hasMarchers) return result
     this.hopTimer -= dt
-    if (this.hopTimer > 0) return null
+    if (this.hopTimer > 0) return result
     this.hopTimer += this.spec.marchInterval ?? DEFAULT_MARCH_INTERVAL
-    let escaped = false
     for (const e of this.enemies) {
       if (!e.alive || !e.march) continue
       const next = { x: e.x + e.march.dx, y: e.y + e.march.dy }
       if (this.barriers.some((b) => blocks(b, e, next))) continue
       e.x = next.x
       e.y = next.y
-      if (isOutside(e)) escaped = true
+      if (isOutside(e)) result.escaped = true
     }
-    if (escaped) {
-      this.phase = 'escaped'
-      return 'escaped'
-    }
-    return 'hop'
+    if (result.escaped) this.phase = 'escaped'
+    else result.hop = true
+    return result
   }
 
   fire(): Shot | null {
@@ -284,8 +342,11 @@ export class Game {
     }
     this.score += points
     let bonus = 0
+    let shieldBonus = 0
     if (this.aliveCount === 0) {
       bonus = this.ammo * BONUS_PER_SPARE_SHOT
+      shieldBonus = this.attacking ? this.shields * BONUS_PER_SHIELD : 0
+      bonus += shieldBonus
       this.score += bonus
       this.phase = 'cleared'
       this.results.push({
@@ -297,11 +358,13 @@ export class Game {
       this.phase = this.ammo === 0 ? 'outOfAmmo' : 'aiming'
     }
     this.shot = null
-    return { hits, points, bonus, phase: this.phase, spawned, boss }
+    return { hits, points, bonus, shieldBonus, phase: this.phase, spawned, boss }
   }
 
   private spawn(p: Spawn): Enemy {
-    const e: Enemy = { ...p, id: this.nextId++, alive: true }
+    // Forskudt start: hver glitch venter lidt ekstra, så de ikke skyder samtidig
+    const delay = ((this.enemies.length * 0.37) % 1) * 0.6
+    const e: Enemy = { ...p, id: this.nextId++, alive: true, charge: -delay }
     if (p.march) e.march = { ...p.march }
     this.enemies.push(e)
     return e
@@ -323,6 +386,7 @@ export class Game {
     this.barriers = []
     this.barrierCharges = this.spec.barriers ?? 0
     this.ammo = this.layout.ammo
+    this.shields = SHIELDS
     this.phase = 'aiming'
     this.helpUsed = { ...this.help }
     this.hopTimer = this.spec.marchInterval ?? DEFAULT_MARCH_INTERVAL

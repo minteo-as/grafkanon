@@ -46,6 +46,10 @@ Hver bane er en liste af bølger, og hver bølge beskriver grupper af mål (anta
 
 Stjerner: ★ for at klare banen, ★★ uden ekstra skud, ★★★ også uden sigtelinje og koordinater.
 
+### Angreb på basen
+
+Fra 3. bane i Linjebyen lader glitcherne op og skyder mod basen. Hver glitch har en ring af prikker, der tændes, mens den lader op (24 sekunder i begyndelsen, 15 i slutbossen), og de sidste 20 % lyser den rødt og knurrer. Basen har 3 skjolde pr. bølge. Mister den alle tre, falder basen, og man prøver bølgen igen. Ladningen står stille, mens man skyder, og når menuen eller en besked er fremme. Hvert skjold, der er tilbage, når bølgen er klaret, giver 150 bonuspoint. Angreb kan slås fra i menuen, og valget huskes. Træningsbanen har ingen angreb.
+
 ### Træningsbanen
 
 Under ugens udfordring i menuen ligger træningsbanen med en knap for hvert våben, man har låst op (en verden er låst op, når dens første bane er åben). Der er ingen stjerner. Når målene er ramt, eller skuddene er brugt, kommer der nye mål, og pointene tæller videre.

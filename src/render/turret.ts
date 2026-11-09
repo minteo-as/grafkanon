@@ -20,6 +20,10 @@ export class Turret {
   private targetAngle = 0
   private recoil = 0
   private rail: THREE.Mesh
+  /** Skjoldet om basen: en lysende kuppel, der bliver svagere for hvert skjold, der springer. */
+  private shield: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
+  private shieldLevel = 0
+  private shieldHit = 0
 
   constructor(
     scene: THREE.Scene,
@@ -50,6 +54,21 @@ export class Turret {
     )
     this.rail.visible = false
     scene.add(this.rail)
+
+    this.shield = new THREE.Mesh(
+      new THREE.SphereGeometry(1.25, 24, 16),
+      new THREE.MeshBasicMaterial({
+        color: COLORS.beam,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    )
+    this.shield.position.y = 0.5
+    this.shield.visible = false
+    this.group.add(this.shield)
 
     this.targetPosition = this.parkedPosition()
     this.group.position.copy(this.targetPosition)
@@ -92,6 +111,17 @@ export class Turret {
     this.targetAngle = Math.atan(slope)
   }
 
+  /** Viser basens skjolde (0–3). Uden angreb i bølgen er skjoldet skjult. */
+  setShields(count: number, visible: boolean): void {
+    this.shieldLevel = count
+    this.shield.visible = visible && count > 0
+  }
+
+  /** Et angreb rammer: skjoldet blinker rødt og ryster. */
+  hitShield(): void {
+    this.shieldHit = 1
+  }
+
   kick(): void {
     this.recoil = 1
   }
@@ -108,6 +138,13 @@ export class Turret {
       this.rail.position.set(this.group.position.x, h / 2, this.group.position.z)
     }
     this.recoil = Math.max(0, this.recoil - dt * 4)
+    this.shieldHit = Math.max(0, this.shieldHit - dt * 2.2)
+    if (this.shield.visible) {
+      const m = this.shield.material
+      m.color.setHex(COLORS.beam).lerp(new THREE.Color(0xff3b3b), this.shieldHit)
+      m.opacity = 0.05 + this.shieldLevel * 0.035 + this.shieldHit * 0.35
+      this.shield.scale.setScalar(1 + this.shieldHit * 0.25)
+    }
     this.barrel.position.x = BARREL_X - this.recoil * 0.25
     this.head.scale.setScalar(1 + this.recoil * 0.12)
   }

@@ -4,7 +4,8 @@ import { fmtPoint } from '../math/format'
 import { aimFunction, roots } from '../math/path'
 import type { Effects } from './effects'
 import { disposeSprite, textSprite } from './labels'
-import { COLORS, FLOOR, prefersReducedMotion, type Plane } from './world'
+import { CHARGE_WARNING } from '../game/game'
+import { COLORS, FLOOR, hdr, prefersReducedMotion, type Plane } from './world'
 
 const BODY_HEIGHT = 0.6
 const SPAWN_TIME = 0.35
@@ -22,11 +23,22 @@ interface Face {
   fear: number // 0 = rolig, 1 = rædselsslagen
 }
 
+/** Ringen af prikker, der tændes, mens glitchen lader op til at skyde mod basen. */
+interface ChargeRing {
+  group: THREE.Group
+  dots: THREE.Mesh[]
+  lit: THREE.MeshBasicMaterial
+  off: THREE.MeshBasicMaterial
+}
+
 interface View {
   group: THREE.Group
   baseY: number // kroppens højde over punktet
   body: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
   face: Face
+  charge: ChargeRing
+  /** Kroppens egen glød, så den kan blinke rødt, når glitchen er ved at skyde. */
+  glow: THREE.Color
   label: THREE.Sprite
   labelColors: [string, string]
   spin: number
@@ -57,6 +69,29 @@ const browGeo = new THREE.BoxGeometry(0.34, 0.07, 0.06)
 const eyeMat = new THREE.MeshBasicMaterial({ color: 0xe9eef8 })
 const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0b0918 })
 const BLINK_TIME = 0.12
+const CHARGE_DOTS = 12
+const dotGeo = new THREE.SphereGeometry(0.06, 6, 4)
+const WARNING_RED = hdr(0xff3b3b, 1.8)
+const CHARGE_AMBER = new THREE.Color(0xffd166)
+
+/** Prikkerne ligger i en ring om glitchen: på gulvet vandret, i sidebilledet lodret ud mod kameraet. */
+function makeChargeRing(side: boolean, baseY: number): ChargeRing {
+  const group = new THREE.Group()
+  const lit = new THREE.MeshBasicMaterial({ color: CHARGE_AMBER.clone() })
+  const off = new THREE.MeshBasicMaterial({ color: 0x2a3550, transparent: true, opacity: 0.5 })
+  const dots: THREE.Mesh[] = []
+  for (let i = 0; i < CHARGE_DOTS; i++) {
+    // Starter øverst (kl. 12) og går med uret
+    const a = Math.PI / 2 - (i / CHARGE_DOTS) * Math.PI * 2
+    const dot = new THREE.Mesh(dotGeo, off)
+    if (side) dot.position.set(Math.cos(a) * 0.82, baseY + Math.sin(a) * 0.82, 0.1)
+    else dot.position.set(Math.cos(a) * 0.78, 0.08, -Math.sin(a) * 0.78)
+    group.add(dot)
+    dots.push(dot)
+  }
+  group.visible = false
+  return { group, dots, lit, off }
+}
 
 /** Øjne (og vrede bryn på bosser). Ansigtet drejes mod kameraet hver frame. */
 function makeFace(scale: number, angry: boolean): Face {
@@ -224,14 +259,20 @@ export class EnemyLayer {
     v.dying = 1e-4
     v.label.visible = false
     v.face.group.visible = false
+    v.charge.group.visible = false
     const at = v.group.position.clone().add(new THREE.Vector3(0, v.baseY, 0))
     this.effects.explosion(at, v.color, this.plane.view)
     this.effects.floatingText(at, pointsText, '#ffd166')
     this.decorDirty = true
   }
 
-  update(dt: number, enemies: Enemy[]): void {
+  /** attacking: glitcherne lader op i denne bølge, så ladningen vises. */
+  update(dt: number, enemies: Enemy[], attacking = false): void {
     this.time += dt
+    for (const e of enemies) {
+      const v = this.views.get(e.id)
+      if (v && e.alive) this.showCharge(v, e.charge, attacking)
+    }
     for (const e of enemies) {
       const v = this.views.get(e.id)
       if (!v || !e.alive || (e.x === v.cell.x && e.y === v.cell.y)) continue
@@ -349,6 +390,9 @@ export class EnemyLayer {
       group.add(badge)
     }
 
+    const charge = makeChargeRing(side, baseY)
+    group.add(charge.group)
+
     // Ansigtet sidder foran kroppen og drejes mod kameraet
     const face = makeFace(e.boss ? 1.25 : 1, !!e.boss)
     face.eyes.forEach((eye) => (eye.position.z = 0.36))
@@ -368,6 +412,8 @@ export class EnemyLayer {
       color: look.color,
       body,
       face,
+      charge,
+      glow: new THREE.Color(look.glow),
       label,
       labelColors: colors,
       spin: look.spin,
@@ -496,6 +542,23 @@ export class EnemyLayer {
     }
   }
 
+  /** Tænder prikkerne efter ladningen. De sidste sekunder lyser de og kroppen rødt og pulserer. */
+  private showCharge(v: View, charge: number, attacking: boolean): void {
+    const ring = v.charge
+    ring.group.visible = attacking && v.dying === 0
+    if (!ring.group.visible) {
+      v.body.material.emissive.copy(v.glow)
+      return
+    }
+    const c = Math.max(0, Math.min(1, charge))
+    const lit = Math.floor(c * CHARGE_DOTS)
+    ring.dots.forEach((dot, i) => (dot.material = i < lit ? ring.lit : ring.off))
+    const warning = c >= CHARGE_WARNING
+    const pulse = warning && !this.reduced ? 0.5 + 0.5 * Math.sin(this.time * 18) : 1
+    ring.lit.color.copy(warning ? WARNING_RED : CHARGE_AMBER).multiplyScalar(warning ? 0.6 + 0.4 * pulse : 1)
+    v.body.material.emissive.copy(v.glow).lerp(new THREE.Color(0xff1a1a), warning ? 0.5 * pulse : 0)
+  }
+
   private clearSpeech(): void {
     if (!this.speech) return
     this.scene.remove(this.speech.sprite)
@@ -506,6 +569,8 @@ export class EnemyLayer {
   private remove(v: View): void {
     this.scene.remove(v.group)
     v.body.material.dispose()
+    v.charge.lit.dispose()
+    v.charge.off.dispose()
     disposeSprite(v.label)
   }
 }

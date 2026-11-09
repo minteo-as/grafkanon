@@ -1,5 +1,7 @@
 export const POINTS_PER_HIT = 100
 export const BONUS_PER_SPARE_SHOT = 250
+/** Bonus for hvert skjold, basen har tilbage, når bølgen er klaret. */
+export const BONUS_PER_SHIELD = 150
 
 export interface Help {
   aimLine: boolean

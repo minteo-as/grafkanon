@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import './style.css'
 import { Sfx } from './audio/sfx'
 import { Game, HIT_RADIUS, type Shot } from './game/game'
@@ -141,6 +142,7 @@ async function main(): Promise<void> {
 
   const refresh = () => {
     hud.update(game)
+    turret.setShields(game.shields, game.attacking)
     controls.setFireEnabled(game.phase === 'aiming' && game.ammo > 0)
   }
 
@@ -240,6 +242,7 @@ async function main(): Promise<void> {
 
   const openMenu = () => {
     controls.enabled = false
+    menu.setAttacks(game.attacksEnabled)
     menu.show(progress, weeklyChallenge(), inLevel, progress.muted)
   }
 
@@ -255,6 +258,14 @@ async function main(): Promise<void> {
     onTraining: startTraining,
     onContinue: closeMenu,
     onToggleSound: toggleSound,
+    onToggleAttacks: () => {
+      sfx.click()
+      game.attacksEnabled = !game.attacksEnabled
+      progress.attacks = game.attacksEnabled
+      saveProgress(progress)
+      menu.setAttacks(game.attacksEnabled)
+      refresh()
+    },
   })
 
   const controls = new Controls({
@@ -398,8 +409,12 @@ async function main(): Promise<void> {
         return
       }
       sfx.waveCleared()
+      const reasons = [
+        game.ammo ? `${game.ammo} skud til overs` : '',
+        out.shieldBonus ? `${game.shields} ${game.shields === 1 ? 'skjold' : 'skjolde'} i behold` : '',
+      ].filter(Boolean)
       const text = out.bonus
-        ? `${fmtScore(game.pointsThisWave)} point i bølgen, heraf ${fmtScore(out.bonus)} i bonus for ${game.ammo} skud til overs.`
+        ? `${fmtScore(game.pointsThisWave)} point i bølgen, heraf ${fmtScore(out.bonus)} i bonus for ${reasons.join(' og ')}.`
         : `${fmtScore(game.pointsThisWave)} point i bølgen.`
       const done = game.waveNumber
       window.setTimeout(() => {
@@ -450,11 +465,32 @@ async function main(): Promise<void> {
       const running = inLevel && !menu.visible && !hud.overlayVisible && !document.hidden
       if (running) {
         const event = game.update(dt)
-        if (event === 'hop') {
+        if (event.hop) {
           sfx.hop()
           refreshTargets()
         }
-        if (event === 'escaped') {
+        if (event.warnings.length) sfx.warn()
+        for (const attacker of event.attacks) {
+          const plane = PLANES[game.weapon]
+          const from = plane.toWorld(attacker.x, attacker.y, game.weapon === 'laser' ? 0.6 : 0)
+          effects.attackBolt(from, turret.position.clone().add(new THREE.Vector3(0, 0.6, 0)), plane.view)
+          turret.hitShield()
+          sfx.shieldHit()
+          world.shake(0.7)
+        }
+        if (event.attacks.length) {
+          refresh()
+          if (!event.fallen) hud.toast(game.shields === 1 ? 'Sidste skjold!' : 'Skjold ramt!')
+        }
+        if (event.fallen) {
+          sfx.fail()
+          hud.showOverlay({
+            title: 'Basen er faldet',
+            text: 'Glitcherne skød alle tre skjolde i stykker. Skyd dem, før de lader helt op. Flere på én linje fjerner flere trusler på én gang.',
+            buttons: [retryButton],
+          })
+        }
+        if (event.escaped) {
           sfx.escaped()
           refresh()
           hud.showOverlay({
@@ -473,7 +509,7 @@ async function main(): Promise<void> {
       barriers.update(game.barriers)
       turret.update(dt)
       enemies.setLook(world.camera.position, turret.position)
-      enemies.update(gdt, game.enemies)
+      enemies.update(gdt, game.enemies, game.attacking)
       effects.update(gdt)
       ARENAS[game.weapon].grid.update(dt)
       if (!reducedMotion) ARENAS[game.weapon].animate?.(dt)
@@ -509,6 +545,7 @@ async function main(): Promise<void> {
   }
 
   if (progress.help) controls.setHelp(progress.help)
+  game.attacksEnabled = progress.attacks !== false
   game.setHelp(controls.help)
   applyWeapon()
   openMenu()

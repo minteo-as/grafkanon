@@ -342,6 +342,13 @@ body {
 .btn.fire.barrier {
   background: var(--aim);
 }
+.chip.shields {
+  border-color: rgba(92, 225, 255, 0.5);
+}
+.chip.shields b {
+  color: var(--beam);
+  letter-spacing: 2px;
+}
 .chip.boss {
   border-color: #ff3d7f;
 }

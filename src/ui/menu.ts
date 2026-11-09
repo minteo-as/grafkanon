@@ -10,6 +10,7 @@ export interface MenuCallbacks {
   onTraining(weapon: Weapon): void
   onContinue(): void
   onToggleSound(): void
+  onToggleAttacks(): void
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -21,10 +22,12 @@ export class Menu {
   private list = $('worldList')
   private continueButton = $<HTMLButtonElement>('menuContinue')
   private soundButton = $<HTMLButtonElement>('menuSound')
+  private attacksButton = $<HTMLButtonElement>('menuAttacks')
 
   constructor(private cb: MenuCallbacks) {
     this.continueButton.addEventListener('click', () => cb.onContinue())
     this.soundButton.addEventListener('click', () => cb.onToggleSound())
+    this.attacksButton.addEventListener('click', () => cb.onToggleAttacks())
   }
 
   get visible(): boolean {
@@ -147,6 +150,15 @@ export class Menu {
     button.addEventListener('click', () => this.cb.onChallenge())
     section.append(title, button)
     return section
+  }
+
+  /** Angreb til eller fra: med dem slået fra lader glitcherne ikke op og skyder ikke mod basen. */
+  setAttacks(on: boolean): void {
+    this.attacksButton.textContent = on ? 'Angreb: til' : 'Angreb: fra'
+    this.attacksButton.setAttribute('aria-pressed', String(on))
+    this.attacksButton.title = on
+      ? 'Glitcherne lader op og skyder mod basen. Slå fra for at spille i ro.'
+      : 'Glitcherne angriber ikke. Slå til for mere spænding.'
   }
 
   setMuted(muted: boolean): void {

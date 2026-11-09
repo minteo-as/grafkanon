@@ -1,4 +1,4 @@
-import type { Game } from '../game/game'
+import { SHIELDS, type Game } from '../game/game'
 import { fmtNum } from '../math/format'
 import { prefersReducedMotion } from '../render/world'
 
@@ -29,6 +29,8 @@ export class Hud {
   private mult = $('hudMult')
   private multNext = $('hudMultNext')
   private marchChip = $('hudMarch')
+  private shieldChip = $('hudShields')
+  private shieldIcons = $('hudShieldIcons')
   private bossChip = $('hudBoss')
   private bossLives = $('hudBossLives')
   private marchTime = $('hudMarchTime')
@@ -68,6 +70,9 @@ export class Hud {
     const next = game.nextMultiplier
     this.multNext.hidden = next === game.multiplier
     this.multNext.textContent = `×${fmtNum(next)} fra næste bølge`
+    this.shieldChip.hidden = !game.attacking
+    this.shieldIcons.textContent = '◆'.repeat(game.shields) + '◇'.repeat(SHIELDS - game.shields)
+    this.shieldChip.setAttribute('aria-label', `Basen har ${game.shields} af ${SHIELDS} skjolde`)
     const lives = game.bossLives
     this.bossChip.hidden = !lives
     this.bossLives.textContent = '♥'.repeat(lives ?? 0)

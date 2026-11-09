@@ -155,13 +155,13 @@ describe('marchører', () => {
     const marcher = game.enemies.find((e) => e.march)!
     const start = { x: marcher.x, y: marcher.y }
     const interval = game.spec.marchInterval!
-    expect(game.update(interval - 0.01)).toBeNull()
-    expect(game.update(0.02)).toBe('hop')
+    expect(game.update(interval - 0.01).hop).toBe(false)
+    expect(game.update(0.02).hop).toBe(true)
     expect(marcher.y).toBe(start.y - 1)
 
     game.setAim({ kind: 'line', a: 0, b: 9.5 })
     game.fire()
-    expect(game.update(interval * 3)).toBeNull()
+    expect(game.update(interval * 3).hop).toBe(false)
     expect(marcher.y).toBe(start.y - 1)
   })
 
@@ -181,9 +181,10 @@ describe('marchører', () => {
 
   it('slipper væk, hvis man venter for længe', () => {
     const { game } = knownGame(marchLevel)
-    let result = null
-    for (let i = 0; i < 30 && result !== 'escaped'; i++) result = game.update(game.spec.marchInterval!)
-    expect(result).toBe('escaped')
+    game.attacksEnabled = false // her gælder det kun marchørerne
+    let escaped = false
+    for (let i = 0; i < 30 && !escaped; i++) escaped = game.update(game.spec.marchInterval!).escaped
+    expect(escaped).toBe(true)
     expect(game.phase).toBe('escaped')
     game.retryWave()
     expect(game.phase).toBe('aiming')

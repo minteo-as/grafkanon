@@ -17,6 +17,7 @@
         <div class="hud">
           <span class="chip"><span id="hudLevel"></span> · Bølge <b id="hudWave">1</b></span>
           <span class="chip">Skud <b id="hudAmmo"></b></span>
+          <span class="chip shields" id="hudShields" hidden>Skjold <b id="hudShieldIcons"></b></span>
           <span class="chip chip-score">Point <b id="hudScore">0</b></span>
           <span class="chip chip-mult">Pointgange <b id="hudMult">×1</b> <small id="hudMultNext" hidden></small></span>
           <span class="chip boss" id="hudBoss" hidden>Boss <b id="hudBossLives"></b></span>
@@ -99,6 +100,7 @@
           <div class="menu-actions">
             <button class="btn primary" id="menuContinue" type="button" hidden>Fortsæt banen</button>
             <button class="btn" id="menuSound" type="button">Lyd: til</button>
+            <button class="btn" id="menuAttacks" type="button" aria-pressed="true">Angreb: til</button>
           </div>
           <div class="worlds" id="worldList"></div>
           <details class="howto">
