@@ -90,6 +90,31 @@ export class Effects {
     }
   }
 
+  /** Et lille glimt og en ring, fx når en blinker forsvinder og dukker op et andet sted. */
+  poof(at: THREE.Vector3, color: number, view: View = 'floor'): void {
+    const ring = new THREE.Mesh(
+      ringGeo,
+      new THREE.MeshBasicMaterial({
+        color: hdr(color, 1.8),
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    )
+    if (view === 'floor') ring.rotation.x = -Math.PI / 2
+    ring.position.copy(at)
+    this.add(
+      ring,
+      0.35,
+      (e, _dt, t) => {
+        e.object.scale.setScalar(0.6 + t * 1.8)
+        ;(ring.material as THREE.MeshBasicMaterial).opacity = 1 - t
+      },
+      () => (ring.material as THREE.Material).dispose(),
+    )
+  }
+
   /** En glitch skyder mod basen: en rød stråle, der lyser op og falmer, og et glimt ved basen. */
   attackBolt(from: THREE.Vector3, to: THREE.Vector3, view: View): void {
     const length = from.distanceTo(to)

@@ -470,6 +470,34 @@ async function main(): Promise<void> {
           refreshTargets()
         }
         if (event.warnings.length) sfx.warn()
+        if (event.blinked.length) {
+          sfx.blink()
+          refreshTargets()
+        }
+        if (event.grown.length) {
+          enemies.add(event.grown)
+          sfx.grow()
+          refreshTargets()
+        }
+        for (const colony of event.bursts) {
+          const plane = PLANES[game.weapon]
+          effects.explosion(plane.toWorld(colony.x, colony.y), COLORS.boss, plane.view)
+          effects.attackBolt(
+            plane.toWorld(colony.x, colony.y),
+            turret.position.clone().add(new THREE.Vector3(0, 0.6, 0)),
+            plane.view,
+          )
+          turret.hitShield()
+        }
+        if (event.bursts.length) {
+          sfx.boom()
+          sfx.shieldHit()
+          world.shake(0.6)
+          refresh()
+          if (!event.fallen) hud.toast('Kolonien nåede toppen! Et skjold er væk')
+        }
+        // Flyvende droner flytter sig hele tiden, så det skal hele tiden tjekkes, hvem sigtet går igennem
+        if (game.enemies.some((e) => e.alive && e.fly)) refreshTargets()
         for (const attacker of event.attacks) {
           const plane = PLANES[game.weapon]
           const from = plane.toWorld(attacker.x, attacker.y, game.weapon === 'laser' ? 0.6 : 0)
@@ -484,9 +512,12 @@ async function main(): Promise<void> {
         }
         if (event.fallen) {
           sfx.fail()
+          const colonies = event.bursts.length > 0
           hud.showOverlay({
             title: 'Basen er faldet',
-            text: 'Glitcherne skød alle tre skjolde i stykker. Skyd dem, før de lader helt op. Flere på én linje fjerner flere trusler på én gang.',
+            text: colonies
+              ? 'Alle tre skjolde er væk. Stop kolonierne, før de vokser op til toppen: ram hele kurven med ét skud.'
+              : 'Glitcherne skød alle tre skjolde i stykker. Skyd dem, før de lader helt op. Flere på én linje fjerner flere trusler på én gang.',
             buttons: [retryButton],
           })
         }

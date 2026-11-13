@@ -94,6 +94,18 @@ export class Sfx {
     this.tone({ type: 'triangle', from: 500, to: 1300, duration: 0.6, volume: 0.04, delay: 0.05 })
   }
 
+  /** En blinker hopper: et hurtigt elektronisk blip. */
+  blink(): void {
+    this.tone({ type: 'sine', from: 700, to: 1700, duration: 0.07, volume: 0.06 })
+    this.tone({ type: 'sine', from: 1700, to: 600, duration: 0.09, volume: 0.05, delay: 0.07 })
+  }
+
+  /** En koloni vokser et skridt: en boblende lyd, der stiger. */
+  grow(): void {
+    this.tone({ type: 'sine', from: 220, to: 420, duration: 0.14, volume: 0.07 })
+    this.tone({ type: 'sine', from: 330, to: 620, duration: 0.12, volume: 0.05, delay: 0.09 })
+  }
+
   /** En glitch er ved at være ladet op: en lav, truende knurren. */
   warn(): void {
     this.tone({ type: 'sawtooth', from: 120, to: 78, duration: 0.55, volume: 0.07, distort: true })

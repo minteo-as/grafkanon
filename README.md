@@ -50,6 +50,13 @@ Stjerner: ★ for at klare banen, ★★ uden ekstra skud, ★★★ også uden 
 
 Fra 3. bane i Linjebyen lader glitcherne op og skyder mod basen. Hver glitch har en ring af prikker, der tændes, mens den lader op (24 sekunder i begyndelsen, 15 i slutbossen), og de sidste 20 % lyser den rødt og knurrer. Basen har 3 skjolde pr. bølge. Mister den alle tre, falder basen, og man prøver bølgen igen. Ladningen står stille, mens man skyder, og når menuen eller en besked er fremme. Hvert skjold, der er tilbage, når bølgen er klaret, giver 150 bonuspoint. Angreb kan slås fra i menuen, og valget huskes. Træningsbanen har ingen angreb.
 
+### Trusler i hver verden
+
+- **Blinkere (Linjebyen):** hopper hvert 7. sekund mellem to pladser, der begge ligger på en af løsningens linjer. En stiplet ring viser, hvor de hopper hen.
+- **Flyvende droner (Parabelbjergene):** flyver frem og tilbage langs deres egen bue. De har ingen koordinater; med koordinater slået til vises buen som et stiplet spor, så man kan aflæse toppunkt og nulpunkter.
+- **Kolonier (Vækstlaboratoriet):** deler sig hvert 9. sekund, så der kommer en ny ét skridt længere fremme på kurven. Når den forreste når toppen, springer den og koster et skjold, indtil man rammer kurven. Et skud langs kurven rammer hele kolonien. Kolonierne vokser kun med angreb slået til.
+- **Finalen:** alle tre blandet.
+
 ### Træningsbanen
 
 Under ugens udfordring i menuen ligger træningsbanen med en knap for hvert våben, man har låst op (en verden er låst op, når dens første bane er åben). Der er ingen stjerner. Når målene er ramt, eller skuddene er brugt, kommer der nye mål, og pointene tæller videre.

@@ -1,6 +1,6 @@
 // Spillets regler uden grafik, så de kan testes for sig.
 
-import type { Aim, Path, PathResult, Wall } from '../math/path'
+import { aimFunction, type Aim, type Path, type PathResult, type Wall } from '../math/path'
 import { LEVELS, weaponOf, type Level } from './levels'
 import { mulberry32, type Rng } from './rng'
 import {
@@ -14,7 +14,9 @@ import {
 } from './scoring'
 import {
   canHit,
+  flightPoint,
   generateWave,
+  SIDE_TOP,
   isOutside,
   mirrorOf,
   pathFor,
@@ -33,6 +35,10 @@ export const BOSS_PHASE_BONUS = 500
 export const SHIELDS = 3
 /** Hvor langt en glitch er i sin ladning, når den begynder at lyse rødt og advare. */
 export const CHARGE_WARNING = 0.8
+/** Sekunder mellem blinkernes hop. */
+export const BLINK_EVERY = 7
+/** Sekunder mellem kolonernes skridt frem langs kurven. */
+export const GROW_EVERY = 9
 
 /** 'fallen': glitcherne har skudt basens skjolde i stykker. */
 export type Phase = 'aiming' | 'firing' | 'cleared' | 'outOfAmmo' | 'escaped' | 'fallen'
@@ -56,6 +62,12 @@ export interface UpdateResult {
   warnings: Enemy[]
   /** Basen mistede sit sidste skjold. */
   fallen: boolean
+  /** Blinkere, der lige har hoppet. */
+  blinked: Enemy[]
+  /** Nye kolonier: hver koloni deler sig og får en ny ét skridt længere fremme på kurven. */
+  grown: Enemy[]
+  /** Kolonier, der er nået toppen og springer (koster et skjold). */
+  bursts: Enemy[]
 }
 
 /** En lodret (x = k) eller vandret (y = k) barriere, som marchører ikke kan gå over. */
@@ -122,6 +134,10 @@ export class Game {
   private shot: Shot | null = null
   private results: WaveResult[] = []
   private hopTimer = 0
+  private blinkTimer = BLINK_EVERY
+  private growTimer = GROW_EVERY
+  /** Sekunder, man har sigtet i bølgen. Styrer de flyvende droner. */
+  private elapsed = 0
   private pendingPhases: Spawn[][] = []
   private nextId = 1
   private rng: Rng
@@ -263,15 +279,27 @@ export class Game {
    * mod basen, når ladningen er fuld.
    */
   update(dt: number): UpdateResult {
-    const result: UpdateResult = { hop: false, escaped: false, attacks: [], warnings: [], fallen: false }
+    const result: UpdateResult = {
+      hop: false,
+      escaped: false,
+      attacks: [],
+      warnings: [],
+      fallen: false,
+      blinked: [],
+      grown: [],
+      bursts: [],
+    }
     if (this.phase !== 'aiming') return result
     for (const b of this.barriers) b.timeLeft -= dt
     this.barriers = this.barriers.filter((b) => b.timeLeft > 0)
+    this.moveSpecials(dt, result)
+    if (this.phase !== 'aiming') return result
 
     if (this.attacking) {
       const time = this.spec.attack!
       for (const e of this.enemies) {
-        if (!e.alive) continue
+        // Kolonier lader ikke op; deres vækst er truslen
+        if (!e.alive || e.grow) continue
         const before = e.charge
         e.charge += dt / time
         if (before < CHARGE_WARNING && e.charge >= CHARGE_WARNING) result.warnings.push(e)
@@ -302,6 +330,52 @@ export class Game {
     if (result.escaped) this.phase = 'escaped'
     else result.hop = true
     return result
+  }
+
+  /** Flyvende droner, blinkere og kolonier. Sker kun, mens man sigter, ligesom resten. */
+  private moveSpecials(dt: number, result: UpdateResult): void {
+    this.elapsed += dt
+    for (const e of this.enemies) if (e.alive && e.fly) Object.assign(e, flightPoint(e.fly, this.elapsed))
+
+    this.blinkTimer -= dt
+    if (this.blinkTimer <= 0) {
+      this.blinkTimer += BLINK_EVERY
+      for (const e of this.enemies) {
+        if (!e.alive || !e.blink) continue
+        const there = e.blink
+        e.blink = { x: e.x, y: e.y }
+        e.x = there.x
+        e.y = there.y
+        result.blinked.push(e)
+      }
+    }
+
+    // Kolonierne vokser kun, når angreb er slået til, for det er deres måde at true basen på
+    this.growTimer -= dt
+    if (this.growTimer > 0 || !this.attacking) return
+    this.growTimer += GROW_EVERY
+    const colonies = new Map<Aim, Enemy[]>()
+    for (const e of this.enemies)
+      if (e.alive && e.grow) colonies.set(e.grow.aim, [...(colonies.get(e.grow.aim) ?? []), e])
+    for (const [aim, members] of colonies) {
+      // Den forreste koloni deler sig: en ny dukker op ét skridt længere fremme på kurven
+      const front = members.reduce((a, b) => (b.x > a.x ? b : a))
+      const x = front.x + 1
+      const y = aimFunction(aim)(x)
+      if (x > front.grow!.maxX || y > SIDE_TOP - 0.6) {
+        // Den er nået toppen og springer: det koster et skjold, og det sker igen, til man rammer den
+        result.bursts.push(front)
+        this.shields = Math.max(0, this.shields - 1)
+        continue
+      }
+      // Er pladsen optaget af en anden glitch, venter kolonien til næste gang
+      if (this.enemies.some((o) => o.alive && Math.hypot(o.x - x, o.y - y) < 1.4)) continue
+      result.grown.push(this.spawn({ x, y, grow: front.grow }))
+    }
+    if (result.bursts.length && this.shields === 0) {
+      this.phase = 'fallen'
+      result.fallen = true
+    }
   }
 
   fire(): Shot | null {
@@ -365,6 +439,7 @@ export class Game {
     // Forskudt start: hver glitch venter lidt ekstra, så de ikke skyder samtidig
     const delay = ((this.enemies.length * 0.37) % 1) * 0.6
     const e: Enemy = { ...p, id: this.nextId++, alive: true, charge: -delay }
+    if (p.blink) e.blink = { ...p.blink }
     if (p.march) e.march = { ...p.march }
     this.enemies.push(e)
     return e
@@ -390,6 +465,9 @@ export class Game {
     this.phase = 'aiming'
     this.helpUsed = { ...this.help }
     this.hopTimer = this.spec.marchInterval ?? DEFAULT_MARCH_INTERVAL
+    this.blinkTimer = BLINK_EVERY
+    this.growTimer = GROW_EVERY
+    this.elapsed = 0
     this.shot = null
   }
 }

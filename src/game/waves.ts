@@ -61,6 +61,8 @@ export interface ArcGroup {
   ground?: boolean
   /** En drone sidder på y-aksen, hvor buen skærer den (y = c i ax² + bx + c). */
   yAxis?: boolean
+  /** Dronerne flyver frem og tilbage langs buen i stedet for at stå stille. */
+  fly?: boolean
 }
 
 /** Droner på samme vækstkurve (raket): y = b · aˣ, eller y = ax + b, hvis væksten er lineær. */
@@ -75,6 +77,8 @@ export interface GrowthGroup {
   linear?: boolean
   /** En drone sidder på y-aksen i startværdien (0, b). */
   start?: boolean
+  /** Kolonier: de deler sig ét skridt frem langs kurven ad gangen og springer, når de når toppen. */
+  grow?: boolean
 }
 
 /**
@@ -110,6 +114,8 @@ export interface WaveSpec {
   linear?: boolean
   /** Sekunder, det tager en glitch at lade op og skyde mod basen. Uden værdi angriber de ikke. */
   attack?: number
+  /** Antal blinkere: glitches, der hopper frem og tilbage mellem to pladser på løsningens linjer. */
+  blinkers?: number
   boss?: BossSpec
 }
 
@@ -121,6 +127,27 @@ export interface BossTag {
   path?: Aim
 }
 
+/** En drone, der flyver frem og tilbage langs buen y = a(x − h)² + k mellem x0 og x1. */
+export interface Flight {
+  a: number
+  h: number
+  k: number
+  x0: number
+  x1: number
+  /** Sekunder for en tur frem og tilbage. */
+  period: number
+  /** Hvor på turen den starter (sekunder). */
+  offset: number
+}
+
+/** En koloni, der vokser ét skridt frem langs sin kurve ad gangen. */
+export interface Growth {
+  aim: Aim
+  start: Point
+  /** Længst frem, den kan nå, før den springer. */
+  maxX: number
+}
+
 export interface Spawn extends Point {
   march?: March
   shield?: Shield
@@ -128,6 +155,18 @@ export interface Spawn extends Point {
   boss?: BossTag
   /** Punkter med samme link skal rammes i samme skud (Tvillingens og Koloniens svage punkter). */
   link?: number
+  /** Blinkere: den anden plads, glitchen hopper hen til. Begge pladser ligger på løsningens linjer. */
+  blink?: Point
+  fly?: Flight
+  grow?: Growth
+}
+
+/** Hvor en flyvende drone er efter t sekunder: frem og tilbage langs buen. */
+export function flightPoint(f: Flight, t: number): Point {
+  const s = ((((t + f.offset) % f.period) + f.period) % f.period) / f.period
+  const u = s < 0.5 ? 2 * s : 2 - 2 * s
+  const x = f.x0 + u * (f.x1 - f.x0)
+  return { x, y: f.a * (x - f.h) ** 2 + f.k }
 }
 
 export interface WaveLayout {
@@ -287,7 +326,9 @@ function placeGrowth(
   const b = pick(group.bs, rng)
   const aim: Aim = group.linear ? { kind: 'line', a, b } : { kind: 'exp', a, b }
   const required = group.start ? [{ x: 0, y: b }] : []
-  const points = choosePoints(required, growthCandidates(aim, maxX), group.count, taken, rng, 1)
+  // Kolonier starter lavt, så der er plads til, at de kan vokse et stykke, før de når toppen
+  const candidates = growthCandidates(aim, maxX).filter((p) => !group.grow || p.y <= 6)
+  const points = choosePoints(required, candidates, group.count, taken, rng, 1)
   return points ? { points, aim } : null
 }
 
@@ -349,14 +390,21 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
       }
     }
     if (!placed) return null
-    for (const p of placed) {
+    const aim = solution[solution.length - 1]
+    placed.forEach((p, i) => {
       const spawn: Spawn = { ...p }
       if (group.kind !== 'arc' && group.kind !== 'growth') {
         if (group.march) spawn.march = { ...group.march }
         if (group.shield) spawn.shield = group.shield
       }
+      if (group.kind === 'arc' && group.fly && aim.kind === 'parabola' && p.y > 0) {
+        spawn.fly = flightFor(aim, p, i)
+      }
+      if (group.kind === 'growth' && group.grow) {
+        spawn.grow = { aim, start: { x: p.x, y: p.y }, maxX: weapon === 'final' ? ARENA_HALF - 1 : GROWTH_WIDTH - 2 }
+      }
       enemies.push(spawn)
-    }
+    })
   }
 
   for (let s = 0; s < spec.singles; s++) {
@@ -397,6 +445,8 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
     solution.push({ kind: 'line', a: 0, b: p.y }, { kind: 'line', a: 0, b: p.y })
   }
 
+  if (spec.blinkers && !addBlinkers(spec.blinkers, enemies, solution, weapon, rng)) return null
+
   const phases: Spawn[][] = []
   if (spec.boss) {
     for (let phase = 0; phase < spec.boss.phases; phase++) {
@@ -417,6 +467,54 @@ function tryGenerate(spec: WaveSpec, weapon: Weapon, rng: Rng): WaveLayout | nul
     ammo: solution.length + spec.spareShots,
     solution,
   }
+}
+
+/** Flyvningen for en drone på buen: fra lige over venstre nulpunkt til lige over højre og tilbage. */
+function flightFor(aim: { a: number; h: number; k: number }, p: Point, index: number): Flight {
+  const [r0, r1] = roots(aim.a, aim.h, aim.k)!
+  const x0 = r0 + 0.5
+  const x1 = r1 - 0.5
+  const period = 9 + index * 1.3
+  // Start der, hvor dronen blev placeret, på vej mod højre
+  const u = Math.min(1, Math.max(0, (p.x - x0) / (x1 - x0)))
+  return { ...aim, x0, x1, period, offset: (u * period) / 2 }
+}
+
+/**
+ * Blinkere: glitches, der hopper frem og tilbage mellem deres plads og en anden plads. Den anden
+ * plads ligger også på en af løsningens linjer, så man altid kan ramme dem, hvis man vælger sit øjeblik.
+ */
+function addBlinkers(count: number, enemies: Spawn[], solution: Aim[], weapon: Weapon, rng: Rng): boolean {
+  const spots = weapon === 'final' ? LINE_SPOTS.side : LINE_SPOTS.floor
+  const candidates: Point[] = []
+  for (const s of solution) {
+    if (s.kind !== 'line') continue
+    for (let x = -spots.xMax; x <= spots.xMax; x++) {
+      const y = s.a * x + s.b
+      if (isInt(y) && Math.round(y) >= spots.yMin && Math.round(y) <= spots.yMax)
+        candidates.push({ x, y: Math.round(y) })
+    }
+  }
+  const taken = () => [...enemies, ...enemies.flatMap((e) => (e.blink ? [e.blink] : []))]
+  for (let i = 0; i < count; i++) {
+    const hosts = shuffle(
+      enemies.filter((e) => !e.march && !e.boss && !e.fly && !e.grow && !e.blink && !e.splits && !e.shield),
+      rng,
+    )
+    let done = false
+    for (const host of hosts) {
+      const free = shuffle(
+        candidates.filter((q) => dist(q, host) >= 3 && taken().every((o) => dist(q, o) >= MIN_GAP)),
+        rng,
+      )
+      if (!free.length) continue
+      host.blink = free[0]
+      done = true
+      break
+    }
+    if (!done) return false
+  }
+  return true
 }
 
 /** Én af bossens faser. Faserne kommer efter hinanden, så de må gerne stå samme sted. */
@@ -492,7 +590,8 @@ function placeBossPhase(
 /** Alle mål i bølgen: dem fra start, bossens senere faser og delernes spejlede glitches. */
 export function allTargets(layout: WaveLayout): Spawn[] {
   const now = [...layout.enemies, ...layout.phases.flat()]
-  return [...now, ...now.filter((e) => e.splits).map(mirrorOf)]
+  const blinked = now.flatMap((e) => (e.blink ? [{ ...e, x: e.blink.x, y: e.blink.y }] : []))
+  return [...now, ...now.filter((e) => e.splits).map(mirrorOf), ...blinked]
 }
 
 /** Hver glitch ligger på en af løsningens baner, kan rammes af den, og ingen mur stopper banen før glitchen. */

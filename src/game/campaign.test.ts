@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Aim } from '../math/path'
 import { isoWeek, weeklyChallenge } from './challenge'
-import { BARRIER_TIME, Game, HIT_RADIUS, type Enemy, type ShotOutcome } from './game'
+import { BARRIER_TIME, BLINK_EVERY, Game, GROW_EVERY, HIT_RADIUS, type Enemy, type ShotOutcome } from './game'
 import { LEVELS, TRAINING, WORLDS, weaponOf, type Level } from './levels'
 import {
   bossRequirement,
@@ -443,5 +443,82 @@ describe('angreb på basen', () => {
     const last = autoplayWave(game, solutions[0])
     expect(last!.phase).toBe('cleared')
     expect(last!.shieldBonus).toBe(2 * 150)
+  })
+})
+
+describe('trusler i hver verden', () => {
+  it('blinkere hopper mellem to pladser, der begge ligger på løsningens linjer', () => {
+    const { game, solutions } = startKnown(levelById('linjebyen-4'), 4)
+    autoplayWave(game, solutions[0])
+    game.nextWave()
+    game.attacksEnabled = false
+    const blinker = game.enemies.find((e) => e.blink)!
+    const home = { x: blinker.x, y: blinker.y }
+    const other = { ...blinker.blink! }
+    expect(game.update(BLINK_EVERY + 0.01).blinked).toContain(blinker)
+    expect({ x: blinker.x, y: blinker.y }).toEqual(other)
+    expect(blinker.blink).toEqual(home)
+    // Begge pladser ligger på en af løsningens linjer
+    for (const p of [home, other]) {
+      expect(solutions[1].some((s) => s.kind === 'line' && Math.abs(s.a * p.x + s.b - p.y) < 1e-9)).toBe(true)
+    }
+    // Prøver man igen, står den på sin første plads igen
+    game.retryWave()
+    const again = game.enemies.find((e) => e.blink)!
+    expect({ x: again.x, y: again.y }).toEqual(home)
+  })
+
+  it('flyvende droner bliver på deres bue og kan altid rammes af den', () => {
+    const { game, solutions } = startKnown(levelById('parabel-blandet'), 6)
+    autoplayWave(game, solutions[0])
+    game.nextWave()
+    game.attacksEnabled = false
+    const flyer = game.enemies.find((e) => e.fly)!
+    const start = { x: flyer.x, y: flyer.y }
+    for (let t = 0; t < 6; t++) {
+      game.update(1.37)
+      const f = flyer.fly!
+      expect(Math.abs(f.a * (flyer.x - f.h) ** 2 + f.k - flyer.y)).toBeLessThan(1e-9)
+    }
+    expect({ x: flyer.x, y: flyer.y }).not.toEqual(start)
+    const arc = solutions[1].find((s) => s.kind === 'parabola' && s.h === flyer.fly!.h && s.k === flyer.fly!.k)!
+    game.setAim(arc)
+    expect(game.fire()!.hits).toContain(flyer)
+  })
+
+  it('kolonier deler sig frem langs kurven, springer ved toppen og rammes alle af kurven', () => {
+    const { game } = startKnown(levelById('vaekst-blandet'), 2)
+    const first = game.enemies.find((e) => e.grow)!
+    const aim = first.grow!.aim
+    // Kun kolonierne er med, så det er deres vækst, der koster skjolde, ikke de andres angreb
+    for (const e of game.enemies) if (!e.grow) e.alive = false
+    const onCurve = () => game.enemies.filter((e) => e.alive && e.grow?.aim === aim)
+    const startCount = onCurve().length
+    expect(onCurve().every((e) => e.y <= 6)).toBe(true)
+
+    const front = Math.max(...onCurve().map((e) => e.x))
+    const r = game.update(GROW_EVERY + 0.01)
+    expect(r.grown).toHaveLength(1)
+    expect(r.grown[0].x).toBe(front + 1)
+    expect(onCurve()).toHaveLength(startCount + 1)
+
+    // Til sidst når den forreste toppen og springer, og det koster et skjold
+    let burst = false
+    for (let i = 0; i < 40 && !burst; i++) burst = game.update(GROW_EVERY).bursts.length > 0
+    expect(burst).toBe(true)
+    expect(game.shields).toBe(2)
+
+    // Ét skud langs kurven rammer hele kolonien, uanset hvor stor den er blevet
+    const count = onCurve().length
+    game.setAim(aim)
+    expect(game.fire()!.hits).toHaveLength(count)
+  })
+
+  it('kolonier vokser ikke, når angreb er slået fra', () => {
+    const { game } = startKnown(levelById('vaekst-blandet'), 2)
+    game.attacksEnabled = false
+    const before = game.enemies.length
+    expect(game.update(GROW_EVERY * 3).grown).toEqual([])
+    expect(game.enemies.length).toBe(before)
   })
 })

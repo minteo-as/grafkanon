@@ -39,6 +39,12 @@ interface View {
   charge: ChargeRing
   /** Kroppens egen glød, så den kan blinke rødt, når glitchen er ved at skyde. */
   glow: THREE.Color
+  /** Flyvende droner har ingen koordinater; deres bue vises som et spor i stedet. */
+  flying: boolean
+  /** Blinkere: en stiplet ring der, hvor de hopper hen næste gang. */
+  ghost: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial> | null
+  /** Kolonier er større, jo længere fremme på kurven de er. */
+  growScale: number
   label: THREE.Sprite
   labelColors: [string, string]
   spin: number
@@ -71,6 +77,7 @@ const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0b0918 })
 const BLINK_TIME = 0.12
 const CHARGE_DOTS = 12
 const dotGeo = new THREE.SphereGeometry(0.06, 6, 4)
+const ghostGeo = new THREE.RingGeometry(0.5, 0.62, 24, 1)
 const WARNING_RED = hdr(0xff3b3b, 1.8)
 const CHARGE_AMBER = new THREE.Color(0xffd166)
 
@@ -249,7 +256,9 @@ export class EnemyLayer {
 
   setCoordinatesVisible(visible: boolean): void {
     this.showCoordinates = visible
-    for (const v of this.views.values()) if (v.dying === 0) v.label.visible = visible
+    for (const v of this.views.values()) if (v.dying === 0) v.label.visible = visible && !v.flying
+    // Sporene for de flyvende droner hører til koordinat-hjælpen
+    this.decorDirty = true
   }
 
   /** Sprænger glitchen og viser pointene for træfferen. */
@@ -258,6 +267,7 @@ export class EnemyLayer {
     if (!v || v.dying > 0) return
     v.dying = 1e-4
     v.label.visible = false
+    if (v.ghost) v.ghost.visible = false
     v.face.group.visible = false
     v.charge.group.visible = false
     const at = v.group.position.clone().add(new THREE.Vector3(0, v.baseY, 0))
@@ -275,12 +285,32 @@ export class EnemyLayer {
     }
     for (const e of enemies) {
       const v = this.views.get(e.id)
-      if (!v || !e.alive || (e.x === v.cell.x && e.y === v.cell.y)) continue
-      // Marchøren har taget et skridt: hop derhen og skift koordinaterne
+      if (!v || !e.alive) continue
+      // Flyvende droner følger buen glat hver frame
+      if (e.fly) {
+        v.group.position.copy(this.plane.toWorld(e.x, e.y))
+        v.cell = { x: e.x, y: e.y }
+        continue
+      }
+      if (e.x === v.cell.x && e.y === v.cell.y) continue
+      const from = v.group.position.clone()
+      const to = this.plane.toWorld(e.x, e.y)
+      if (e.blink) {
+        // Blinkeren forsvinder med et glimt og dukker op på sin anden plads
+        this.effects.poof(from.clone().setY(from.y + v.baseY), v.color, this.plane.view)
+        this.effects.poof(to.clone().setY(to.y + v.baseY), v.color, this.plane.view)
+        v.group.position.copy(to)
+        v.hopFrom.copy(to)
+        v.hopTo.copy(to)
+        v.hopT = 1
+        if (v.ghost) v.ghost.position.copy(this.ghostPosition(e.blink))
+      } else {
+        // Marchøren hopper et felt
+        v.hopFrom.copy(from)
+        v.hopTo.copy(to)
+        v.hopT = 0
+      }
       v.cell = { x: e.x, y: e.y }
-      v.hopFrom.copy(v.group.position)
-      v.hopTo.copy(this.plane.toWorld(e.x, e.y))
-      v.hopT = 0
       v.group.remove(v.label)
       disposeSprite(v.label)
       v.label = makeLabel(e.x, e.y, v.labelColors, this.labelScale)
@@ -296,10 +326,15 @@ export class EnemyLayer {
         v.group.position.lerpVectors(v.hopFrom, v.hopTo, v.hopT)
         v.group.position.y = Math.sin(Math.PI * v.hopT) * 0.6
       }
+      if (v.ghost) {
+        v.ghost.visible = v.dying === 0
+        v.ghost.material.opacity = 0.35 + 0.25 * Math.sin(this.time * 4)
+      }
       if (v.dying === 0) {
         const t = Math.min(1, Math.max(0, (v.age - v.delay) / SPAWN_TIME))
         v.group.scale.setScalar(Math.max(0.001, easeOutBack(t)))
         const scared = this.targeted.has(id)
+        if (v.growScale !== 1) v.body.scale.setScalar(v.growScale)
         if (!this.reduced) {
           v.body.position.y = v.baseY + Math.sin(this.time * 2.2 + v.phase) * 0.08
           v.body.rotation.y += dt * v.spin
@@ -402,7 +437,17 @@ export class EnemyLayer {
     const colors = labelColors(e, side)
     const label = makeLabel(e.x, e.y, colors, this.labelScale)
     label.position.y = baseY + 0.85
-    label.visible = this.showCoordinates
+    label.visible = this.showCoordinates && !e.fly
+    let ghost: View['ghost'] = null
+    if (e.blink) {
+      ghost = new THREE.Mesh(
+        ghostGeo,
+        new THREE.MeshBasicMaterial({ color: look.color, transparent: true, opacity: 0.5, side: THREE.DoubleSide }),
+      )
+      if (!side) ghost.rotation.x = -Math.PI / 2
+      ghost.position.copy(this.ghostPosition(e.blink))
+      this.scene.add(ghost)
+    }
     group.add(label)
     group.scale.setScalar(0.001)
     this.scene.add(group)
@@ -417,6 +462,9 @@ export class EnemyLayer {
       label,
       labelColors: colors,
       spin: look.spin,
+      flying: !!e.fly,
+      ghost,
+      growScale: e.grow ? 1 + 0.15 * Math.max(0, e.x - e.grow.start.x) : 1,
       cell: { x: e.x, y: e.y },
       hopFrom: group.position.clone(),
       hopTo: group.position.clone(),
@@ -428,6 +476,11 @@ export class EnemyLayer {
     }
   }
 
+  /** Hvor blinkerens ring skal ligge: på gulvet eller lige foran sidebilledet. */
+  private ghostPosition(p: { x: number; y: number }): THREE.Vector3 {
+    return this.plane.view === 'side' ? this.plane.toWorld(p.x, p.y, 0.05) : this.plane.toWorld(p.x, p.y, 0.04)
+  }
+
   private buildDecor(enemies: Enemy[]): void {
     for (const child of [...this.decor.children]) {
       this.decor.remove(child)
@@ -437,6 +490,30 @@ export class EnemyLayer {
     }
     this.twinBodies = []
     this.curve = null
+    // De flyvende droners buer som et svagt spor (kun med koordinater slået til)
+    if (this.showCoordinates) {
+      const flights = new Map<string, NonNullable<Enemy['fly']>>()
+      for (const e of enemies) if (e.alive && e.fly) flights.set(`${e.fly.a},${e.fly.h},${e.fly.k}`, e.fly)
+      for (const f of flights.values()) {
+        const points = Array.from({ length: 61 }, (_, i) => {
+          const x = f.x0 + ((f.x1 - f.x0) * i) / 60
+          return this.plane.toWorld(x, f.a * (x - f.h) ** 2 + f.k, -0.02)
+        })
+        const trail = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(points),
+          new THREE.LineDashedMaterial({
+            color: COLORS.drone,
+            dashSize: 0.18,
+            gapSize: 0.22,
+            transparent: true,
+            opacity: 0.55,
+          }),
+        )
+        trail.computeLineDistances()
+        this.decor.add(trail)
+      }
+    }
+
     const alive = enemies.filter((e) => e.alive && e.boss)
 
     // Tvillingen og Kolonien: et lysende bånd mellem de svage punkter og en stor krop over midten
@@ -568,6 +645,10 @@ export class EnemyLayer {
 
   private remove(v: View): void {
     this.scene.remove(v.group)
+    if (v.ghost) {
+      this.scene.remove(v.ghost)
+      v.ghost.material.dispose()
+    }
     v.body.material.dispose()
     v.charge.lit.dispose()
     v.charge.off.dispose()

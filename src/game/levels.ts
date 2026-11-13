@@ -963,6 +963,69 @@ for (const level of LEVELS) {
   if (time) for (const wave of level.waves) wave.attack ??= time
 }
 
+/**
+ * Trusler, der hænger sammen med matematikken i hver verden: blinkere i Linjebyen, flyvende droner i
+ * Parabelbjergene og kolonier, der vokser, i Vækstlaboratoriet. fly og grow er nummeret på gruppen i bølgen.
+ */
+const SPECIALS: Record<string, { wave: number; blinkers?: number; fly?: number; grow?: number }[]> = {
+  'linjebyen-4': [
+    { wave: 1, blinkers: 1 },
+    { wave: 3, blinkers: 1 },
+  ],
+  'parabel-2': [{ wave: 3, fly: 1 }],
+  'parabel-blandet': [
+    { wave: 1, fly: 0 },
+    { wave: 3, fly: 2 },
+  ],
+  'parabel-boss': [{ wave: 0, fly: 1 }],
+  'vaekst-2': [{ wave: 2, grow: 0 }],
+  'vaekst-4': [{ wave: 2, grow: 1 }],
+  'vaekst-blandet': [
+    { wave: 0, grow: 0 },
+    { wave: 2, grow: 0 },
+  ],
+  'vaekst-boss': [{ wave: 0, grow: 0 }],
+  'finale-2': [
+    { wave: 0, blinkers: 1, grow: 2 },
+    { wave: 1, fly: 0 },
+  ],
+  'finale-3': [
+    { wave: 0, fly: 1, grow: 2 },
+    { wave: 2, blinkers: 1, fly: 2 },
+  ],
+  'finale-boss': [{ wave: 0, blinkers: 1, fly: 1, grow: 2 }],
+}
+const SPECIAL_HINTS = {
+  blinkers: 'Den blinkende glitch hopper mellem to pladser. Vent, til den står på din linje.',
+  fly: 'Nogle droner flyver langs deres egen bue. Aflæs toppunkt og nulpunkter på sporet.',
+  grow: 'Kolonien deler sig: hvert 9. sekund kommer en ny et skridt længere fremme på kurven. Når den når toppen, springer den.',
+}
+for (const [id, list] of Object.entries(SPECIALS)) {
+  const level = LEVELS.find((l) => l.id === id)!
+  for (const { wave, blinkers, fly, grow } of list) {
+    const spec = level.waves[wave]
+    const hints: string[] = []
+    if (blinkers) {
+      spec.blinkers = blinkers
+      hints.push(SPECIAL_HINTS.blinkers)
+    }
+    if (fly !== undefined) {
+      const group = spec.groups[fly]
+      if (group.kind !== 'arc') throw new Error(`${id} bølge ${wave}: gruppe ${fly} er ikke en bue`)
+      group.fly = true
+      hints.push(SPECIAL_HINTS.fly)
+    }
+    if (grow !== undefined) {
+      const group = spec.groups[grow]
+      if (group.kind !== 'growth') throw new Error(`${id} bølge ${wave}: gruppe ${grow} er ikke vækst`)
+      group.grow = true
+      hints.push(SPECIAL_HINTS.grow)
+    }
+    // Ét nyt mål ad gangen får hele forklaringen; flere på én gang får den korte udgave
+    spec.hint = hints.length === 1 ? `${spec.hint} ${hints[0]}` : hints.join(' ')
+  }
+}
+
 const TRAINING_HINT = 'Træning: skyd løs. Der kommer nye mål, når du har ramt dem alle.'
 
 /** Træningsbanen: én bølge, der kommer igen med nye mål. Ingen stjerner, bare skyderi. */
