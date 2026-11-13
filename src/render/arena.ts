@@ -88,8 +88,8 @@ export function buildFloorArena(half: number): Arena {
     arena.add(rim, neon)
   }
   const city = buildCity(half)
-  const life = buildCityLife(half)
-  arena.add(city.group, life.group)
+  const life = buildCityLife(half, city.facades)
+  arena.add(city.group, buildStreets(half), life.group)
   return { group: arena, grid, animate: life.animate }
 }
 
@@ -118,7 +118,7 @@ function signTexture(text: string, color: string): THREE.CanvasTexture {
  * Biler, der flyver i baner bag og over byen med forlygter og en lysstribe bagved, neonskilte, der
  * blinker af og til, og et søgelys, der fejer hen over himlen.
  */
-function buildCityLife(half: number): { group: THREE.Group; animate: (dt: number) => void } {
+function buildCityLife(half: number, facades: Facade[]): { group: THREE.Group; animate: (dt: number) => void } {
   const life = new THREE.Group()
   let r = 21
   const rand = () => (r = (r * 9301 + 49297) % 233280) / 233280
@@ -137,31 +137,42 @@ function buildCityLife(half: number): { group: THREE.Group; animate: (dt: number
         depthWrite: false,
       }),
   )
-  const bodyGeo = new THREE.BoxGeometry(1.1, 0.35, 0.5)
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1b1530, metalness: 0.6, roughness: 0.4 })
+  const bodyGeo = new THREE.BoxGeometry(1.1, 0.26, 0.5)
+  const cabinGeo = new THREE.BoxGeometry(0.6, 0.2, 0.44)
+  const bodyMats = [0x2b1e4a, 0x16324a, 0x3a1630, 0x2a2a38].map(
+    (color) => new THREE.MeshStandardMaterial({ color, metalness: 0.6, roughness: 0.35 }),
+  )
+  const cabinMat = new THREE.MeshStandardMaterial({ color: 0x0c0c16, metalness: 0.8, roughness: 0.2 })
   for (let i = 0; i < 14; i++) {
     const dir = i % 2 === 0 ? 1 : -1
     const car = new THREE.Group()
-    const body = new THREE.Mesh(bodyGeo, bodyMat)
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.42), dir > 0 ? headMat : tailMat)
-    head.position.x = 0.58
-    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.42), dir > 0 ? tailMat : headMat)
-    tail.position.x = -0.58
-    const trail = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.08, 0.08), trailMats[i % trailMats.length])
-    trail.position.x = -2.2
-    car.add(body, head, tail, trail)
+    const body = new THREE.Mesh(bodyGeo, bodyMats[i % bodyMats.length])
+    const cabin = new THREE.Mesh(cabinGeo, cabinMat)
+    cabin.position.set(-0.05, 0.22, 0)
+    // Forlygter foran og baglygter bagpå (bilen vendes, når den kører mod venstre)
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.4), headMat)
+    head.position.set(0.56, 0.02, 0)
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.4), tailMat)
+    tail.position.set(-0.56, 0.02, 0)
+    const trail = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.05, 0.05), trailMats[i % trailMats.length])
+    trail.position.set(-1.4, 0.02, 0)
+    car.add(body, cabin, head, tail, trail)
     car.scale.x = dir
-    // Bilerne flyver i gaderne: lige bag banen og i mellemrummene mellem husrækkerne
-    const lanes = [half + 3.5, half + 5, half + 12.5, half + 20.5]
-    const z = -lanes[i % lanes.length]
-    const y = 3.5 + rand() * 7
+    // Hver vej har en bane i hver retning, med højrekørsel set fra kameraet
+    const road = ROADS[i % ROADS.length]
+    const z = -(half + road.at) + (dir > 0 ? road.width / 4 : -road.width / 4)
+    const y = ROAD_Y + 0.15
     const span = 110
     cars.push({ mesh: car, speed: (6 + rand() * 7) * dir, span, z, y, x: (rand() - 0.5) * span })
     life.add(car)
   }
 
-  // Neonskilte på de forreste huse bag banen
+  // Neonskilte skruet fast på facaden af de høje huse i forreste række, tæt på midten
   const signs: { mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>; next: number; off: number }[] = []
+  const hosts: Facade[] = []
+  for (const f of [...facades].filter((f) => f.h >= 6 && f.w >= 2.6).sort((a, b) => Math.abs(a.x) - Math.abs(b.x))) {
+    if (hosts.every((o) => Math.abs(o.x - f.x) >= 9)) hosts.push(f)
+  }
   const texts: [string, string][] = [
     ['y = ax + b', '#3ff0ff'],
     ['GRAF', '#ff4fd8'],
@@ -169,11 +180,14 @@ function buildCityLife(half: number): { group: THREE.Group; animate: (dt: number
     ['GLITCH', '#ffd166'],
   ]
   texts.forEach(([text, color], i) => {
+    const host = hosts[i]
+    if (!host) return
+    const width = Math.min(host.w - 0.4, 4.4)
     const mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(4.6, 1.7),
+      new THREE.PlaneGeometry(width, width * 0.375),
       new THREE.MeshBasicMaterial({ map: signTexture(text, color), transparent: true, color: hdr(0xffffff, 1.15) }),
     )
-    mesh.position.set(-24 + i * 16 + rand() * 4, 7 + rand() * 6, -(half + 4.6))
+    mesh.position.set(host.x, Math.min(host.h - 1.5, 4.5 + rand() * 2.5), host.front + 0.06)
     signs.push({ mesh, next: 2 + rand() * 6, off: 0 })
     life.add(mesh)
   })
@@ -205,7 +219,7 @@ function buildCityLife(half: number): { group: THREE.Group; animate: (dt: number
       c.x += c.speed * dt
       if (c.x > c.span / 2) c.x -= c.span
       if (c.x < -c.span / 2) c.x += c.span
-      c.mesh.position.set(c.x, c.y + Math.sin(time * 0.8 + c.z) * 0.3, c.z)
+      c.mesh.position.set(c.x, c.y, c.z)
     }
     for (const sign of signs) {
       // Skiltene flimrer kort af og til, som rigtige neonrør
@@ -256,7 +270,96 @@ function windowTexture(seed: number): THREE.CanvasTexture {
 }
 
 /** Skyline rundt om banen: høje huse bagved og på siderne, neonlister på nogle af tagene og en sol i horisonten. */
-function buildCity(half: number): { group: THREE.Group } {
+/** Et hus i forreste række, så skilte kan skrues fast på facaden. */
+interface Facade {
+  x: number
+  w: number
+  h: number
+  /** z for facaden, der vender ind mod banen. */
+  front: number
+}
+
+/**
+ * Husrækkerne bag banen står med gader imellem, så bilerne kan køre i gaderne uden at ramme husene.
+ * Midten af række n ligger i z = −(half + ROWS[n]), og husene er højst ROW_DEPTH dybe.
+ */
+const ROWS = [8, 19, 30]
+const ROW_DEPTH = 4.5
+/**
+ * Vejene: én lige bag banen og én mellem hver husrække. at er afstanden bag banens kant til vejens
+ * midte, width er vejens bredde. Hver vej har en bane i hver retning.
+ */
+const ROADS = [
+  { at: 2.6, width: 2.8 },
+  { at: 13.5, width: 3.6 },
+  { at: 24.5, width: 3.6 },
+]
+/** Vejens overflade ligger lige under banens gulv; husene står på jorden lidt længere nede. */
+const GROUND_Y = -0.3
+const ROAD_Y = -0.28
+
+/** Jord under byen, veje med striber og gadelygter langs vejene. */
+function buildStreets(half: number): THREE.Group {
+  const streets = new THREE.Group()
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(160, 110),
+    new THREE.MeshStandardMaterial({ color: 0x0a0817, roughness: 0.95 }),
+  )
+  ground.rotation.x = -Math.PI / 2
+  ground.position.set(0, GROUND_Y, -40)
+  streets.add(ground)
+
+  const length = 120
+  const asphalt = new THREE.MeshStandardMaterial({ color: 0x1a1a26, roughness: 0.75, metalness: 0.1 })
+  const edgeMat = new THREE.MeshBasicMaterial({ color: 0x5a6078 })
+  const dashMat = new THREE.MeshBasicMaterial({ color: 0xd9c27a })
+  const dashGeo = new THREE.BoxGeometry(1.1, 0.02, 0.09)
+  const dashesPerRoad = Math.floor(length / 2.4)
+  const dashes = new THREE.InstancedMesh(dashGeo, dashMat, dashesPerRoad * ROADS.length)
+  const postGeo = new THREE.BoxGeometry(0.08, 1.7, 0.08)
+  const lampGeo = new THREE.BoxGeometry(0.42, 0.08, 0.14)
+  const lampsPerRoad = Math.floor(length / 9)
+  const posts = new THREE.InstancedMesh(
+    postGeo,
+    new THREE.MeshStandardMaterial({ color: 0x2b2f42, metalness: 0.6 }),
+    lampsPerRoad * ROADS.length,
+  )
+  const lamps = new THREE.InstancedMesh(
+    lampGeo,
+    new THREE.MeshBasicMaterial({ color: hdr(0xffd9a0, 1.6) }),
+    lampsPerRoad * ROADS.length,
+  )
+  const m = new THREE.Matrix4()
+  ROADS.forEach((road, r) => {
+    const z = -(half + road.at)
+    const surface = new THREE.Mesh(new THREE.BoxGeometry(length, 0.02, road.width), asphalt)
+    surface.position.set(0, ROAD_Y - 0.01, z)
+    streets.add(surface)
+    // Kantlinjer på begge sider og en stiplet midterlinje
+    for (const side of [-1, 1]) {
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(length, 0.02, 0.06), edgeMat)
+      edge.position.set(0, ROAD_Y, z + side * (road.width / 2 - 0.12))
+      streets.add(edge)
+    }
+    for (let i = 0; i < dashesPerRoad; i++) {
+      m.makeTranslation(-length / 2 + i * 2.4 + 1.2, ROAD_Y + 0.005, z)
+      dashes.setMatrixAt(r * dashesPerRoad + i, m)
+    }
+    // Gadelygter på husenes side af vejen
+    const lampZ = z - road.width / 2 - 0.25
+    for (let i = 0; i < lampsPerRoad; i++) {
+      const x = -length / 2 + i * 9 + 4.5
+      m.makeTranslation(x, GROUND_Y + 0.85, lampZ)
+      posts.setMatrixAt(r * lampsPerRoad + i, m)
+      m.makeTranslation(x, GROUND_Y + 1.7, lampZ + 0.16)
+      lamps.setMatrixAt(r * lampsPerRoad + i, m)
+    }
+  })
+  streets.add(dashes, posts, lamps)
+  return streets
+}
+
+function buildCity(half: number): { group: THREE.Group; facades: Facade[] } {
   const city = new THREE.Group()
   const textures = [1, 2, 3, 4].map(windowTexture)
   const neon = [COLORS.neonPink, COLORS.neonCyan, COLORS.neonViolet].map(
@@ -265,20 +368,21 @@ function buildCity(half: number): { group: THREE.Group } {
   )
   let r = 7
   const rand = () => (r = (r * 9301 + 49297) % 233280) / 233280
-  const spots: [number, number][] = []
-  // Bagved: flere rækker, der bliver højere jo længere væk, med huller, så himlen kan ses imellem
-  for (let row = 0; row < 3; row++) {
-    for (let x = -46; x <= 46; x += 5 + rand() * 5) spots.push([x, -(half + 7 + row * 8 + rand() * 3)])
-  }
-  // På siderne
+  const spots: [number, number, number][] = []
+  // Bagved: tre rækker med gader imellem, højere jo længere væk, med huller, så himlen kan ses imellem
+  ROWS.forEach((depth, row) => {
+    for (let x = -46; x <= 46; x += 5 + rand() * 5) spots.push([x, -(half + depth + (rand() - 0.5) * 2), row])
+  })
+  // På siderne, kun ud for den bageste halvdel og ikke ude i den forreste gade.
+  // Huse tæt på kameraet ville vælte udad i perspektivet
   for (const sx of [-1, 1]) {
-    // Kun ud for den bageste halvdel; huse tæt på kameraet ville vælte udad i perspektivet
-    for (let z = -half - 2; z <= 1; z += 4 + rand() * 2) spots.push([sx * (half + 9 + rand() * 6), z])
+    for (let z = -half + 1; z <= 1; z += 4 + rand() * 2) spots.push([sx * (half + 9 + rand() * 6), z, -1])
   }
-  for (const [x, z] of spots) {
+  const facades: Facade[] = []
+  for (const [x, z, row] of spots) {
     const far = Math.min(1, Math.max(0, (Math.abs(z) - half - 6) / 20) + Math.abs(x) / 80)
     const w = 2.5 + rand() * 3
-    const d = 2.5 + rand() * 3
+    const d = 2.5 + rand() * (ROW_DEPTH - 2.5)
     const h = 4 + rand() * (6 + far * 12) + far * 10
     const map = textures[Math.floor(rand() * textures.length)].clone()
     map.repeat.set(Math.max(1, Math.round(w / 2.5)), Math.max(1, Math.round(h / 4)))
@@ -295,6 +399,7 @@ function buildCity(half: number): { group: THREE.Group } {
     )
     building.position.set(x, h / 2 - 0.3, z)
     city.add(building)
+    if (row === 0) facades.push({ x, w, h, front: z + d / 2 })
     if (rand() < 0.45) {
       // Neonlister langs tagkanten (kun kanten, så taget ikke ligner en farvet plade)
       const mat = neon[Math.floor(rand() * neon.length)]
@@ -318,7 +423,7 @@ function buildCity(half: number): { group: THREE.Group } {
   )
   sun.position.set(0, 10, -75)
   city.add(sun)
-  return { group: city }
+  return { group: city, facades }
 }
 
 export interface SideArenaOptions {
