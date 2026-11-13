@@ -14,6 +14,8 @@ export interface Arena {
   grid: HoloGrid
   /** Det, der bevæger sig i kulissen, fx bobler i laboratoriet. */
   animate?: (dt: number) => void
+  /** Hvor meget der sker i kulissen (1 = roligt). Laboratoriet bobler mere, når kolonierne vokser. */
+  setActivity?: (level: number) => void
 }
 
 /** Farverne i sidebillederne: gitter, bagvæg, jord og den lysende horisontlinje. */
@@ -85,8 +87,140 @@ export function buildFloorArena(half: number): Arena {
     neon.position.copy(toWorld(x, y, 0.27))
     arena.add(rim, neon)
   }
-  arena.add(buildCity(half))
-  return { group: arena, grid }
+  const city = buildCity(half)
+  const life = buildCityLife(half)
+  arena.add(city.group, life.group)
+  return { group: arena, grid, animate: life.animate }
+}
+
+/** Et neonskilt med tekst, fx "y = ax + b", tegnet som tekstur. */
+function signTexture(text: string, color: string): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 96
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = 'rgba(10, 6, 24, 0.85)'
+  ctx.fillRect(0, 0, 256, 96)
+  ctx.strokeStyle = color
+  ctx.lineWidth = 5
+  ctx.strokeRect(6, 6, 244, 84)
+  ctx.font = '700 46px "Atkinson Hyperlegible", system-ui, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = color
+  ctx.fillText(text, 128, 52)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+/**
+ * Biler, der flyver i baner bag og over byen med forlygter og en lysstribe bagved, neonskilte, der
+ * blinker af og til, og et søgelys, der fejer hen over himlen.
+ */
+function buildCityLife(half: number): { group: THREE.Group; animate: (dt: number) => void } {
+  const life = new THREE.Group()
+  let r = 21
+  const rand = () => (r = (r * 9301 + 49297) % 233280) / 233280
+
+  // Flyvende biler i rette baner (man kan næsten se deres forskrift)
+  const cars: { mesh: THREE.Group; speed: number; span: number; z: number; y: number; x: number }[] = []
+  const headMat = new THREE.MeshBasicMaterial({ color: hdr(0xfff2d0, 2) })
+  const tailMat = new THREE.MeshBasicMaterial({ color: hdr(0xff3355, 1.8) })
+  const trailMats = [COLORS.neonCyan, COLORS.neonPink, 0xffd166].map(
+    (c) =>
+      new THREE.MeshBasicMaterial({
+        color: hdr(c, 1.4),
+        transparent: true,
+        opacity: 0.45,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+  )
+  const bodyGeo = new THREE.BoxGeometry(1.1, 0.35, 0.5)
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1b1530, metalness: 0.6, roughness: 0.4 })
+  for (let i = 0; i < 14; i++) {
+    const dir = i % 2 === 0 ? 1 : -1
+    const car = new THREE.Group()
+    const body = new THREE.Mesh(bodyGeo, bodyMat)
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.42), dir > 0 ? headMat : tailMat)
+    head.position.x = 0.58
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.42), dir > 0 ? tailMat : headMat)
+    tail.position.x = -0.58
+    const trail = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.08, 0.08), trailMats[i % trailMats.length])
+    trail.position.x = -2.2
+    car.add(body, head, tail, trail)
+    car.scale.x = dir
+    // Bilerne flyver i gaderne: lige bag banen og i mellemrummene mellem husrækkerne
+    const lanes = [half + 3.5, half + 5, half + 12.5, half + 20.5]
+    const z = -lanes[i % lanes.length]
+    const y = 3.5 + rand() * 7
+    const span = 110
+    cars.push({ mesh: car, speed: (6 + rand() * 7) * dir, span, z, y, x: (rand() - 0.5) * span })
+    life.add(car)
+  }
+
+  // Neonskilte på de forreste huse bag banen
+  const signs: { mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>; next: number; off: number }[] = []
+  const texts: [string, string][] = [
+    ['y = ax + b', '#3ff0ff'],
+    ['GRAF', '#ff4fd8'],
+    ['x² · 24/7', '#9b6bff'],
+    ['GLITCH', '#ffd166'],
+  ]
+  texts.forEach(([text, color], i) => {
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.6, 1.7),
+      new THREE.MeshBasicMaterial({ map: signTexture(text, color), transparent: true, color: hdr(0xffffff, 1.15) }),
+    )
+    mesh.position.set(-24 + i * 16 + rand() * 4, 7 + rand() * 6, -(half + 4.6))
+    signs.push({ mesh, next: 2 + rand() * 6, off: 0 })
+    life.add(mesh)
+  })
+
+  // Et søgelys bag byen, der fejer frem og tilbage hen over himlen
+  const beam = new THREE.Mesh(
+    new THREE.ConeGeometry(4, 60, 24, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: 0x9bb8ff,
+      transparent: true,
+      opacity: 0.06,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      fog: false,
+    }),
+  )
+  beam.geometry.translate(0, -30, 0) // spidsen i lampen, keglen ud fra den
+  const pivot = new THREE.Group()
+  pivot.position.set(16, 0, -(half + 9))
+  beam.rotation.x = Math.PI
+  pivot.add(beam)
+  life.add(pivot)
+
+  let time = 0
+  const animate = (dt: number) => {
+    time += dt
+    for (const c of cars) {
+      c.x += c.speed * dt
+      if (c.x > c.span / 2) c.x -= c.span
+      if (c.x < -c.span / 2) c.x += c.span
+      c.mesh.position.set(c.x, c.y + Math.sin(time * 0.8 + c.z) * 0.3, c.z)
+    }
+    for (const sign of signs) {
+      // Skiltene flimrer kort af og til, som rigtige neonrør
+      sign.next -= dt
+      if (sign.next <= 0) {
+        sign.off = 0.18 + rand() * 0.25
+        sign.next = 3 + rand() * 7
+      }
+      sign.off = Math.max(0, sign.off - dt)
+      sign.mesh.material.opacity = sign.off > 0 && Math.floor(sign.off * 30) % 2 === 0 ? 0.15 : 1
+    }
+    pivot.rotation.z = Math.sin(time * 0.25) * 0.6
+    pivot.rotation.x = -0.25 + Math.sin(time * 0.17) * 0.12
+  }
+  return { group: life, animate }
 }
 
 /** Hvor lys en farve opleves (0–1), regnet i lineære farver som gløden. */
@@ -122,7 +256,7 @@ function windowTexture(seed: number): THREE.CanvasTexture {
 }
 
 /** Skyline rundt om banen: høje huse bagved og på siderne, neonlister på nogle af tagene og en sol i horisonten. */
-function buildCity(half: number): THREE.Group {
+function buildCity(half: number): { group: THREE.Group } {
   const city = new THREE.Group()
   const textures = [1, 2, 3, 4].map(windowTexture)
   const neon = [COLORS.neonPink, COLORS.neonCyan, COLORS.neonViolet].map(
@@ -184,7 +318,7 @@ function buildCity(half: number): THREE.Group {
   )
   sun.position.set(0, 10, -75)
   city.add(sun)
-  return city
+  return { group: city }
 }
 
 export interface SideArenaOptions {
@@ -257,9 +391,10 @@ export function buildSideArena(half: number, top: number, opts: SideArenaOptions
   yName.position.copy(plane.toWorld(0.5, top + 0.5, 0.2))
   arena.add(xName, yName)
 
-  const scene = scenery === 'lab' ? buildLab() : scenery === 'core' ? buildCore() : buildMountains()
+  const scene: { group: THREE.Group; animate?: (dt: number) => void; setActivity?: (k: number) => void } =
+    scenery === 'lab' ? buildLab() : scenery === 'core' ? buildCore() : buildMountains()
   arena.add(scene.group)
-  return { group: arena, grid, animate: scene.animate }
+  return { group: arena, grid, animate: scene.animate, setActivity: scene.setActivity }
 }
 
 /** Synthwave-sol: gul foroven, lyserød forneden, med vandrette striber skåret ud af den nederste halvdel. */
@@ -295,6 +430,24 @@ function buildMountains(): { group: THREE.Group; animate?: (dt: number) => void 
   )
   sun.position.set(0, 9, -48)
   group.add(sun)
+
+  // Stjerneskud: lange, tynde lysstriber, der af og til farer skråt ned over himlen
+  const shooting = Array.from({ length: 3 }, () => {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(3.5, 0.06, 0.06),
+      new THREE.MeshBasicMaterial({
+        color: hdr(0xffffff, 2),
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        fog: false,
+      }),
+    )
+    group.add(mesh)
+    return { mesh, t: -1, from: new THREE.Vector3(), dir: new THREE.Vector3() }
+  })
+  let nextStar = 2
 
   // Stjerner højt på himlen
   const stars: number[] = []
@@ -338,11 +491,44 @@ function buildMountains(): { group: THREE.Group; animate?: (dt: number) => void 
     edges.rotation.copy(m.rotation)
     group.add(m, edges)
   })
-  return { group }
+
+  let time = 0
+  const animate = (dt: number) => {
+    time += dt
+    // Solen ånder langsomt
+    sun.scale.setScalar(1 + Math.sin(time * 0.6) * 0.015)
+    nextStar -= dt
+    if (nextStar <= 0) {
+      nextStar = 2.5 + rand() * 4
+      const star = shooting.find((s) => s.t < 0)
+      if (star) {
+        star.t = 0
+        star.from.set((rand() - 0.5) * 70, 26 + rand() * 18, -52)
+        star.dir.set(rand() < 0.5 ? -1 : 1, -0.45 - rand() * 0.3, 0).normalize()
+        star.mesh.rotation.z = Math.atan2(star.dir.y, star.dir.x)
+      }
+    }
+    for (const s of shooting) {
+      if (s.t < 0) continue
+      s.t += dt
+      const life = 0.9
+      s.mesh.position.copy(s.from).addScaledVector(s.dir, s.t * 38)
+      s.mesh.material.opacity = Math.max(0, 1 - s.t / life)
+      if (s.t > life) {
+        s.t = -1
+        s.mesh.material.opacity = 0
+      }
+    }
+  }
+  return { group, animate }
 }
 
 /** Glaskolber med lysende væske og bobler, rør på væggen og sporer, der svæver op. */
-function buildLab(): { group: THREE.Group; animate: (dt: number) => void } {
+function buildLab(): {
+  group: THREE.Group
+  animate: (dt: number) => void
+  setActivity: (level: number) => void
+} {
   const lab = new THREE.Group()
   const glass = new THREE.MeshStandardMaterial({
     color: COLORS.flask,
@@ -410,18 +596,22 @@ function buildLab(): { group: THREE.Group; animate: (dt: number) => void } {
     ),
   )
 
+  let activity = 1
+  const setActivity = (level: number) => {
+    activity = level
+  }
   const animate = (dt: number) => {
     for (const b of bubbles) {
-      b.mesh.position.y += b.speed * dt
+      b.mesh.position.y += b.speed * activity * dt
       if (b.mesh.position.y > b.top) b.mesh.position.y = b.bottom
     }
     for (let i = 0; i < count; i++) {
-      spores[i * 3 + 1] += dt * (0.25 + (i % 5) * 0.08)
+      spores[i * 3 + 1] += dt * (0.25 + (i % 5) * 0.08) * (0.6 + activity * 0.4)
       if (spores[i * 3 + 1] > 22) spores[i * 3 + 1] = 0
     }
     sporeGeo.attributes.position.needsUpdate = true
   }
-  return { group: lab, animate }
+  return { group: lab, animate, setActivity }
 }
 
 /** Finalen: Kernen som et kæmpe roterende glitch-krystal og "dataregn", der falder i baggrunden. */

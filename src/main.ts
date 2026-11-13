@@ -372,6 +372,11 @@ async function main(): Promise<void> {
   }
 
   const finishShot = () => {
+    // Glitches, som skuddet strøg tæt forbi uden at ramme, ånder lettet op
+    if (shot) {
+      const path = shot.path
+      enemies.relieve(game.enemies.filter((e) => e.alive && path.distanceTo(e.x, e.y) < 1.3).map((e) => e.id))
+    }
     const out = game.completeShot()
     shot = null
     if (out.spawned.length) {
@@ -543,6 +548,8 @@ async function main(): Promise<void> {
       enemies.update(gdt, game.enemies, game.attacking)
       effects.update(gdt)
       ARENAS[game.weapon].grid.update(dt)
+      // Laboratoriet bobler mere, jo flere kolonier der er
+      ARENAS[game.weapon].setActivity?.(1 + 0.3 * game.enemies.filter((e) => e.alive && e.grow).length)
       if (!reducedMotion) ARENAS[game.weapon].animate?.(dt)
       const flight = grenade.update(gdt)
       if (flight?.landed && shot && shot.path.end !== 'edge') {

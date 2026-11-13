@@ -21,6 +21,7 @@ interface Face {
   nextBlink: number
   blink: number // > 0 mens øjnene er lukket
   fear: number // 0 = rolig, 1 = rædselsslagen
+  relief: number // > 0 mens glitchen ånder lettet op med lukkede øjne
 }
 
 /** Ringen af prikker, der tændes, mens glitchen lader op til at skyde mod basen. */
@@ -45,6 +46,12 @@ interface View {
   ghost: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial> | null
   /** Kolonier er større, jo længere fremme på kurven de er. */
   growScale: number
+  /** Et lille hop af og til, mens man sigter (sekunder tilbage af hoppet, 0 = intet). */
+  bounce: number
+  nextIdle: number
+  /** Af og til kigger glitchen et andet sted hen end på kanonen. */
+  glance: THREE.Vector3 | null
+  glanceTime: number
   label: THREE.Sprite
   labelColors: [string, string]
   spin: number
@@ -75,6 +82,7 @@ const browGeo = new THREE.BoxGeometry(0.34, 0.07, 0.06)
 const eyeMat = new THREE.MeshBasicMaterial({ color: 0xe9eef8 })
 const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0b0918 })
 const BLINK_TIME = 0.12
+const BOUNCE_TIME = 0.45
 const CHARGE_DOTS = 12
 const dotGeo = new THREE.SphereGeometry(0.06, 6, 4)
 const ghostGeo = new THREE.RingGeometry(0.5, 0.62, 24, 1)
@@ -123,7 +131,7 @@ function makeFace(scale: number, angry: boolean): Face {
       group.add(brow)
     }
   }
-  return { group, eyes, pupils, nextBlink: 1 + Math.random() * 4, blink: 0, fear: 0 }
+  return { group, eyes, pupils, nextBlink: 1 + Math.random() * 4, blink: 0, fear: 0, relief: 0 }
 }
 
 const _local = new THREE.Vector3()
@@ -142,7 +150,8 @@ function animateFace(face: Face, dt: number, camera: THREE.Vector3, target: THRE
   face.group.worldToLocal(_local)
   _local.z = 0
   if (_local.lengthSq() > 1e-6) _local.normalize().multiplyScalar(0.045)
-  const open = face.blink > 0 ? 0.12 : 1 + face.fear * 0.35
+  face.relief = Math.max(0, face.relief - dt)
+  const open = face.blink > 0 || face.relief > 0 ? 0.12 : 1 + face.fear * 0.35
   for (const eye of face.eyes) eye.scale.set(eye.scale.x, eye.scale.x * open, eye.scale.z)
   for (const pupil of face.pupils) {
     pupil.position.set(_local.x, _local.y, 0.09)
@@ -232,6 +241,18 @@ export class EnemyLayer {
   /** På smalle skærme er banen lille, så koordinaterne gøres større for at kunne læses. */
   setLabelScale(scale: number): void {
     this.labelScale = scale
+  }
+
+  /** Et skud gik tæt forbi: glitcherne lukker øjnene lettet og siger "Puh!". */
+  relieve(ids: number[]): void {
+    for (const id of ids) {
+      const v = this.views.get(id)
+      if (!v || v.dying > 0) continue
+      v.face.relief = 1.1
+      v.bounce = BOUNCE_TIME
+      const at = v.group.position.clone().add(new THREE.Vector3(0, v.baseY + 0.4, 0))
+      this.effects.floatingText(at, 'Puh!', '#bfe9ff')
+    }
   }
 
   /** Glitches, som sigtet lige nu går igennem. De bliver bange. */
@@ -334,9 +355,20 @@ export class EnemyLayer {
         const t = Math.min(1, Math.max(0, (v.age - v.delay) / SPAWN_TIME))
         v.group.scale.setScalar(Math.max(0.001, easeOutBack(t)))
         const scared = this.targeted.has(id)
-        if (v.growScale !== 1) v.body.scale.setScalar(v.growScale)
+        // Af og til et lille hop med squash-and-stretch, og et blik rundt omkring
+        v.nextIdle -= dt
+        if (v.nextIdle <= 0 && !scared && !this.reduced) {
+          v.nextIdle = 3 + Math.random() * 6
+          v.bounce = BOUNCE_TIME
+          v.glance = v.group.position.clone().add(new THREE.Vector3(Math.random() * 8 - 4, 1, Math.random() * 8 - 4))
+          v.glanceTime = 1.4
+        }
+        v.bounce = Math.max(0, v.bounce - dt)
+        v.glanceTime = Math.max(0, v.glanceTime - dt)
+        const b = v.bounce > 0 ? Math.sin((1 - v.bounce / BOUNCE_TIME) * Math.PI) : 0
+        v.body.scale.set(v.growScale * (1 - b * 0.12), v.growScale * (1 + b * 0.22), v.growScale * (1 - b * 0.12))
         if (!this.reduced) {
-          v.body.position.y = v.baseY + Math.sin(this.time * 2.2 + v.phase) * 0.08
+          v.body.position.y = v.baseY + Math.sin(this.time * 2.2 + v.phase) * 0.08 + b * 0.35
           v.body.rotation.y += dt * v.spin
           v.body.rotation.x += dt * 0.4
           // En bange glitch ryster
@@ -344,7 +376,7 @@ export class EnemyLayer {
           else v.body.position.x = 0
         }
         v.face.group.position.set(v.body.position.x, v.body.position.y, 0)
-        animateFace(v.face, dt, this.camera, this.lookTarget, scared)
+        animateFace(v.face, dt, this.camera, v.glanceTime > 0 && v.glance ? v.glance : this.lookTarget, scared)
       } else if (v.group.visible) {
         v.dying += dt
         v.body.scale.setScalar(1 + v.dying * 4)
@@ -470,6 +502,10 @@ export class EnemyLayer {
       hopTo: group.position.clone(),
       hopT: 1,
       phase: Math.random() * 6,
+      bounce: 0,
+      nextIdle: 2 + Math.random() * 6,
+      glance: null,
+      glanceTime: 0,
       age: 0,
       delay,
       dying: 0,
